@@ -11,15 +11,12 @@ const ProfesorSchema = z.object({
   telefono: z.string().optional(),
   fecha_vinculacion: z.string().optional(),
   foto_url: z.string().optional(),
-  // Objeto embobado con la adscripción a la Facultad
+  // IDs de la adscripción jerárquica del profesor
   dependencia_actual: z.object({
     escuela_o_oficina_id: z.string({ required_error: 'ID de Escuela u Oficina es requerido' }),
-    escuela_o_oficina: z.string(),
     departamento_id: z.string().optional(),
-    departamento: z.string().optional(),
     seccion_id: z.string().optional(),
-    seccion: z.string().optional(),
-    // Arreglo de IDs ancestros para búsquedas jerárquicas rápidas
+    // IDs de dependencias superiores para búsquedas jerárquicas rápidas
     ancestros: z.array(z.string()).default([])
   }),
   

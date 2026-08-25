@@ -5,7 +5,6 @@ const DependenciaSchema = z.object({
   tipo: z.enum(['ESCUELA', 'OFICINA', 'DEPARTAMENTO', 'SECCION']),
   padre_id: z.string().nullable().default(null), // null si es Escuela u Oficina
   ancestros: z.array(z.string()).default([]),    // Lista de IDs superiores
-  estado: z.enum(['ACTIVO', 'INACTIVO']).default('ACTIVO')
 });
 
 const UpdateDependenciaSchema = DependenciaSchema.partial();
