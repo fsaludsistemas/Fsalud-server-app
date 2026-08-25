@@ -10,7 +10,7 @@ const ProfesorSchema = z.object({
   email_institucional: z.string().email('Debe ser un correo válido'),
   telefono: z.string().optional(),
   fecha_vinculacion: z.string().optional(),
-  foto_url: z.string().optional().nullable(),
+  foto_url: z.string().optional(),
   // IDs de la adscripción jerárquica del profesor
   dependencia_actual: z.object({
     escuela_o_oficina_id: z.string({ required_error: 'ID de Escuela u Oficina es requerido' }),
