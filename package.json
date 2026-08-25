@@ -21,7 +21,7 @@
     "firebase-admin": "^14.3.0",
     "googleapis": "^175.0.0",
     "jsonwebtoken": "^9.0.3",
-    "jwks-rsa": "^4.1.0",
+    "jwks-rsa": "^3.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
