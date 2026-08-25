@@ -18,7 +18,10 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase": "^12.17.1",
+    "firebase-admin": "^14.3.0",
     "googleapis": "^175.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "jwks-rsa": "^4.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
