@@ -5,9 +5,9 @@ const DocentePeriodoSchema = z.object({
   periodo_id: z.string(),
   tipo_vinculacion: z.enum(['NOMBRADO', 'CONTRATISTA', 'AD-HONOREM', 'ASISTENTE DOC']),
   dedicacion: z.enum(['COMPLETO', 'PARCIAL', 'H. CATEDRA']),
-  categoria_docente: z.enum(['AUXILIAR', 'ASISTENTE', 'ASOCIADO', 'TITULAR', 'SIN CARGO']),
+  cargo: z.enum(['AUXILIAR', 'ASISTENTE', 'ASOCIADO', 'TITULAR', 'SIN CARGO']),
   estado: z.enum(['ACTIVO', 'INACTIVO']).default('ACTIVO'),
-  nivel: z.enum(['PREGRADO', 'MAESTRIA', 'DOCTORADO', 'ESPECIALIZACION']).optional()
+  nivel: z.enum(['PREGRADO', 'MAESTRIA', 'DOCTORADO', 'ESPECIALIZACION', 'ESPECIALISTA']),
 });
 
 const UpdateDocentePeriodoSchema = DocentePeriodoSchema.partial();
