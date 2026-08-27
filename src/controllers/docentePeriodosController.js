@@ -16,6 +16,7 @@ import {
 
 const docentePeriodosCollection = collection(db, 'docente_periodos');
 const profesoresCollection = collection(db, 'profesores');
+const periodosCollection = collection(db, 'periodos');
 
 const handleError = (res, error) => {
   if (error instanceof z.ZodError) {
@@ -42,10 +43,34 @@ const validateProfesor = async (profesorId) => {
   }
 };
 
+const validatePeriodo = async (periodoId) => {
+  const periodoRef = doc(periodosCollection, periodoId);
+  const periodoDoc = await getDoc(periodoRef);
+
+  if (!periodoDoc.exists()) {
+    const err = new Error('El periodo asociado no existe');
+    err.statusCode = 400;
+    throw err;
+  }
+};
+
+const enrichDocentePeriodo = async (docSnap) => {
+  const data = docSnap.data();
+  const periodoRef = doc(periodosCollection, data.periodo_id);
+  const periodoDoc = await getDoc(periodoRef);
+
+  return {
+    id: docSnap.id,
+    ...data,
+    periodo: periodoDoc.exists() ? { id: periodoDoc.id, ...periodoDoc.data() } : null
+  };
+};
+
 export const createDocentePeriodoController = async (req, res) => {
   try {
     const payload = createDocentePeriodo(req.body);
     await validateProfesor(payload.data.profesor_id);
+    await validatePeriodo(payload.data.periodo_id);
 
     const docentePeriodoRef = doc(docentePeriodosCollection, payload.id);
     const existentDoc = await getDoc(docentePeriodoRef);
@@ -58,8 +83,7 @@ export const createDocentePeriodoController = async (req, res) => {
 
     await setDoc(docentePeriodoRef, payload.data);
     const createdDoc = await getDoc(docentePeriodoRef);
-
-    return res.status(201).json({ id: createdDoc.id, ...createdDoc.data() });
+    return res.status(201).json(await enrichDocentePeriodo(createdDoc));
   } catch (error) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
@@ -71,7 +95,7 @@ export const createDocentePeriodoController = async (req, res) => {
 export const getDocentePeriodosController = async (_req, res) => {
   try {
     const snapshot = await getDocs(docentePeriodosCollection);
-    const docentePeriodos = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    const docentePeriodos = await Promise.all(snapshot.docs.map((item) => enrichDocentePeriodo(item)));
     return res.status(200).json(docentePeriodos);
   } catch (error) {
     return handleError(res, error);
@@ -88,7 +112,7 @@ export const getDocentePeriodoByIdController = async (req, res) => {
       return res.status(404).json({ message: 'DocentePeriodo no encontrado' });
     }
 
-    return res.status(200).json({ id: docentePeriodoDoc.id, ...docentePeriodoDoc.data() });
+    return res.status(200).json(await enrichDocentePeriodo(docentePeriodoDoc));
   } catch (error) {
     return handleError(res, error);
   }
@@ -110,16 +134,15 @@ export const updateDocentePeriodoController = async (req, res) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(updatePayload, 'profesor_id') ||
-      Object.prototype.hasOwnProperty.call(updatePayload, 'periodo')) {
+      Object.prototype.hasOwnProperty.call(updatePayload, 'periodo_id')) {
       return res.status(400).json({
-        message: 'No se permite actualizar profesor_id o periodo. Elimina y crea un nuevo registro.'
+        message: 'No se permite actualizar profesor_id o periodo_id. Elimina y crea un nuevo registro.'
       });
     }
 
     await updateDoc(docentePeriodoRef, updatePayload);
     const updatedDoc = await getDoc(docentePeriodoRef);
-
-    return res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
+    return res.status(200).json(await enrichDocentePeriodo(updatedDoc));
   } catch (error) {
     return handleError(res, error);
   }
