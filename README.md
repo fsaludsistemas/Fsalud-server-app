@@ -588,6 +588,122 @@ Elimina un registro de docente-periodo.
 
 ---
 
+### 🧾 Asignaciones
+
+La colección `asignaciones` guarda el detalle de actividades asociadas a un `docente_periodo`.  
+El ID del documento se construye automáticamente como:
+
+```txt
+<profesor_id>_<docente_periodo_id>
+```
+
+#### `POST /api/asignaciones`
+Crea una asignación para un profesor en un periodo docente.
+
+**Body:**
+```json
+{
+  "profesor_id": "prof_123",
+  "docente_periodo_id": "prof_123_2026-1",
+  "tipo_actividad": "Docencia",
+  "actividad": "ACTIVIDADES DE DOCENCIA",
+  "nombre_actividad": "Cátedra de Bases de Datos",
+  "detalle_actividad": "Grupo 01, semestre 2026-1",
+  "numero_horas": 8,
+  "categoria": "DOCENTE"
+}
+```
+
+**Campos obligatorios:**
+- `profesor_id`
+- `docente_periodo_id`
+- `tipo_actividad`
+- `actividad`
+
+**Campos opcionales:**
+- `nombre_actividad`
+- `detalle_actividad`
+- `numero_horas`
+- `categoria`
+
+**Valores válidos para `tipo_actividad`:**
+- `Administrativas`
+- `Comisión`
+- `Complementarias`
+- `Docencia`
+- `Investigación`
+- `Extensión`
+- `Intelectual`
+- `Sin actividades`
+
+**Valores válidos para `actividad`:**
+- `ACTIVIDADES ADMINISTRATIVAS`
+- `ACTIVIDADES COMPLEMENTARIAS`
+- `ACTIVIDADES DE DOCENCIA`
+- `ACTIVIDADES DE EXTENSIÓN`
+- `ACTIVIDADES DE INVESTIGACIÓN`
+- `ACTIVIDADES INTELECTUALES O ARTISTICAS`
+- `DOCENTE EN COMISIÓN`
+- `SIN ACTIVIDADES`
+
+**Respuesta `201`:**
+```json
+{
+  "id": "prof_123_prof_123_2026-1",
+  "profesor_id": "prof_123",
+  "docente_periodo_id": "prof_123_2026-1",
+  "tipo_actividad": "Docencia",
+  "actividad": "ACTIVIDADES DE DOCENCIA",
+  "nombre_actividad": "Cátedra de Bases de Datos",
+  "detalle_actividad": "Grupo 01, semestre 2026-1",
+  "numero_horas": 8,
+  "categoria": "DOCENTE",
+  "createdAt": "2026-08-27T15:00:00.000Z",
+  "periodo": {
+    "id": "2026-1",
+    "periodo": "2026-1",
+    "createdAt": "2026-08-25T15:00:00.000Z"
+  }
+}
+```
+
+**Posibles errores:**
+- `400` si `profesor_id` no existe
+- `400` si `docente_periodo_id` no existe
+- `409` si ya existe una asignación para ese profesor y periodo
+
+---
+
+#### `GET /api/asignaciones/profesor/:profesorId`
+Retorna todas las asignaciones asociadas a un profesor específico.
+
+**Ejemplo:** `GET /api/asignaciones/profesor/prof_123`
+
+**Respuesta `200`:**
+```json
+[
+  {
+    "id": "prof_123_prof_123_2026-1",
+    "profesor_id": "prof_123",
+    "docente_periodo_id": "prof_123_2026-1",
+    "tipo_actividad": "Docencia",
+    "actividad": "ACTIVIDADES DE DOCENCIA",
+    "nombre_actividad": "Cátedra de Bases de Datos",
+    "detalle_actividad": "Grupo 01, semestre 2026-1",
+    "numero_horas": 8,
+    "categoria": "DOCENTE",
+    "periodo": {
+      "id": "2026-1",
+      "periodo": "2026-1"
+    }
+  }
+]
+```
+
+Si el profesor no tiene asignaciones, la respuesta es un arreglo vacío: `[]`.
+
+---
+
 ## Respuestas de error comunes
 
 | Código | Causa |
@@ -639,6 +755,7 @@ DocentePeriodo
 - No se elimina `Profesor` si tiene periodos docentes asociados.
 - No se elimina `Periodo` si tiene `docente_periodos` asociados.
 - En `DocentePeriodo` no se puede cambiar `profesor_id` ni `periodo_id` en update (eliminar y recrear).
+- En `Asignaciones` no se puede cambiar `profesor_id` ni `docente_periodo_id` en update (eliminar y recrear).
 
 ---
 

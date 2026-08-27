@@ -6,6 +6,7 @@ import dependenciasRoutes from './src/routes/dependencias.route.js'
 import docentePeriodosRoutes from './src/routes/docentePeriodos.route.js'
 import periodosRoutes from './src/routes/periodos.route.js'
 import usuariosRoutes from './src/routes/usuarios.route.js'
+import asignacionesRoutes from './src/routes/asignaciones.route.js'
 import { verificarToken } from './src/Middlewares/verificarToken.js'
 
 
@@ -25,6 +26,7 @@ app.use('/api', verificarToken)
 app.use('/api/profesores', profesoresRoutes)
 app.use('/api/dependencias', dependenciasRoutes)
 app.use('/api/docente-periodos', docentePeriodosRoutes)
+app.use('/api/asignaciones', asignacionesRoutes)
 app.use('/api/periodos', periodosRoutes)
 app.use('/api/usuarios', usuariosRoutes)
 
