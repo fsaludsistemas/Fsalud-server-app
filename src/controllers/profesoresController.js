@@ -16,6 +16,7 @@ import { createProfesor, UpdateProfesorSchema } from '../models/ProfesorModel.js
 const profesoresCollection = collection(db, 'profesores');
 const dependenciasCollection = collection(db, 'dependencias');
 const docentePeriodosCollection = collection(db, 'docente_periodos');
+const periodosCollection = collection(db, 'periodos');
 
 const handleError = (res, error) => {
 	if (error instanceof z.ZodError) {
@@ -49,6 +50,35 @@ const validateDependenciaActual = async (dependenciaActual) => {
 			throw err;
 		}
 	}
+};
+
+const enrichDocentePeriodo = async (docSnap) => {
+	const data = docSnap.data();
+	const periodoRef = doc(periodosCollection, data.periodo_id);
+	const periodoDoc = await getDoc(periodoRef);
+
+	return {
+		id: docSnap.id,
+		...data,
+		periodo: periodoDoc.exists() ? { id: periodoDoc.id, ...periodoDoc.data() } : null
+	};
+};
+
+const enrichProfesor = async (profesorDoc) => {
+	const docentePeriodoQuery = query(
+		docentePeriodosCollection,
+		where('profesor_id', '==', profesorDoc.id)
+	);
+	const docentePeriodoResult = await getDocs(docentePeriodoQuery);
+	const docentePeriodos = await Promise.all(
+		docentePeriodoResult.docs.map((item) => enrichDocentePeriodo(item))
+	);
+
+	return {
+		id: profesorDoc.id,
+		...profesorDoc.data(),
+		docente_periodos: docentePeriodos
+	};
 };
 
 export const createProfesorController = async (req, res) => {
@@ -96,11 +126,11 @@ export const getProfesorByIdController = async (req, res) => {
 		const profesorRef = doc(profesoresCollection, id);
 		const profesorDoc = await getDoc(profesorRef);
 
-		if (!profesorDoc.exists()) {
-			return res.status(404).json({ message: 'Profesor no encontrado' });
-		}
+	if (!profesorDoc.exists()) {
+		return res.status(404).json({ message: 'Profesor no encontrado' });
+	}
 
-		return res.status(200).json({ id: profesorDoc.id, ...profesorDoc.data() });
+	return res.status(200).json(await enrichProfesor(profesorDoc));
 	} catch (error) {
 		return handleError(res, error);
 	}
@@ -152,10 +182,7 @@ export const deleteProfesorController = async (req, res) => {
 			return res.status(404).json({ message: 'Profesor no encontrado' });
 		}
 
-		const docentePeriodoQuery = query(
-			docentePeriodosCollection,
-			where('profesor_id', '==', id)
-		);
+		const docentePeriodoQuery = query(docentePeriodosCollection, where('profesor_id', '==', id));
 		const docentePeriodoResult = await getDocs(docentePeriodoQuery);
 
 		if (!docentePeriodoResult.empty) {

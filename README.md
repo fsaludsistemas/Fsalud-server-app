@@ -313,6 +313,38 @@ Retorna un profesor por su ID de Firestore.
 
 **Respuesta `200`:** objeto. **`404`** si no existe.
 
+> Esta respuesta incluye `docente_periodos`, que es un array con los periodos docentes asociados al profesor.
+
+**Ejemplo de respuesta `200`:**
+```json
+{
+  "id": "prof_123",
+  "tipo_identificacion": "CEDULA",
+  "numero_identificacion": "1234567890",
+  "nombres": "Juan Carlos",
+  "apellidos": "Pérez Gómez",
+  "email_institucional": "juan.perez@correounivalle.edu.co",
+  "estado": "ACTIVO",
+  "docente_periodos": [
+    {
+      "id": "prof_123_2026-1",
+      "profesor_id": "prof_123",
+      "periodo_id": "2026-1",
+      "tipo_vinculacion": "NOMBRADO",
+      "dedicacion": "COMPLETO",
+      "categoria_docente": "ASOCIADO",
+      "estado": "ACTIVO",
+      "nivel": "MAESTRIA",
+      "periodo": {
+        "id": "2026-1",
+        "periodo": "2026-1",
+        "createdAt": "2026-08-25T15:00:00.000Z"
+      }
+    }
+  ]
+}
+```
+
 ---
 
 #### `PUT /api/profesores/:id`
@@ -338,6 +370,220 @@ Elimina un profesor.
 **Respuesta `200`:**
 ```json
 { "message": "Profesor eliminado correctamente" }
+```
+
+---
+
+### 📅 Periodos
+
+La colección `periodos` se usa como catálogo oficial para los periodos académicos. El `id` del documento es el mismo valor del periodo, por ejemplo `2026-1`.
+
+#### `POST /api/periodos`
+Crea un periodo.
+
+**Body:**
+```json
+{
+  "periodo": "2026-1"
+}
+```
+
+**Formato válido:** `YYYY-1` o `YYYY-2`
+
+**Respuesta `201`:**
+```json
+{
+  "id": "2026-1",
+  "periodo": "2026-1",
+  "createdAt": "2026-08-25T15:00:00.000Z"
+}
+```
+
+**Respuesta `409`:**
+```json
+{ "message": "Ya existe ese periodo" }
+```
+
+---
+
+#### `GET /api/periodos`
+Retorna todos los periodos registrados.
+
+**Respuesta `200`:**
+```json
+[
+  {
+    "id": "2026-1",
+    "periodo": "2026-1",
+    "createdAt": "2026-08-25T15:00:00.000Z"
+  }
+]
+```
+
+---
+
+#### `GET /api/periodos/:id`
+Retorna un periodo por su ID.
+
+**Ejemplo:** `GET /api/periodos/2026-1`
+
+**Respuesta `200`:** objeto de periodo. **`404`** si no existe.
+
+---
+
+#### `PUT /api/periodos/:id`
+Actualiza parcialmente un periodo. En la práctica no se permite cambiar el `periodo` porque ese valor es el ID del documento.
+
+**Body:** puede venir vacío solo si realmente no se desea cambiar nada, pero el backend responderá `400`.
+
+**Respuesta `200`:** objeto actualizado.
+
+**Respuesta `400`:**
+```json
+{ "message": "No se permite actualizar el id del periodo. Elimina y crea un nuevo registro." }
+```
+
+---
+
+#### `DELETE /api/periodos/:id`
+Elimina un periodo.
+
+> ⚠️ Falla con `409` si existen registros en `docente_periodos` que apunten a ese `periodo_id`.
+
+**Respuesta `200`:**
+```json
+{ "message": "Periodo eliminado correctamente" }
+```
+
+**Respuesta `409`:**
+```json
+{ "message": "No se puede eliminar: el periodo tiene docentes asociados" }
+```
+
+---
+
+### 👩‍🏫 Docente Periodos
+
+Esta colección representa la relación entre un profesor y un periodo académico.
+
+#### `POST /api/docente-periodos`
+Crea un registro de docente por periodo.
+
+**Body:**
+```json
+{
+  "profesor_id": "prof_123",
+  "periodo_id": "2026-1",
+  "tipo_vinculacion": "NOMBRADO",
+  "dedicacion": "COMPLETO",
+  "categoria_docente": "ASOCIADO",
+  "estado": "ACTIVO",
+  "nivel": "MAESTRIA"
+}
+```
+
+**Campos obligatorios:**
+- `profesor_id`
+- `periodo_id`
+- `tipo_vinculacion`
+- `dedicacion`
+- `categoria_docente`
+
+**Campos opcionales:**
+- `estado` tiene default `ACTIVO`
+- `nivel`
+
+**Respuesta `201`:**
+```json
+{
+  "id": "prof_123_2026-1",
+  "profesor_id": "prof_123",
+  "periodo_id": "2026-1",
+  "tipo_vinculacion": "NOMBRADO",
+  "dedicacion": "COMPLETO",
+  "categoria_docente": "ASOCIADO",
+  "estado": "ACTIVO",
+  "nivel": "MAESTRIA",
+  "createdAt": "2026-08-25T15:00:00.000Z",
+  "periodo": {
+    "id": "2026-1",
+    "periodo": "2026-1",
+    "createdAt": "2026-08-25T15:00:00.000Z"
+  }
+}
+```
+
+**Posibles errores:**
+- `400` si el profesor no existe
+- `400` si el periodo no existe
+- `409` si ya existe un registro para ese profesor y periodo
+
+---
+
+#### `GET /api/docente-periodos`
+Retorna todos los registros de docente-periodo.
+
+**Respuesta `200`:**
+```json
+[
+  {
+    "id": "prof_123_2026-1",
+    "profesor_id": "prof_123",
+    "periodo_id": "2026-1",
+    "tipo_vinculacion": "NOMBRADO",
+    "dedicacion": "COMPLETO",
+    "categoria_docente": "ASOCIADO",
+    "estado": "ACTIVO",
+    "nivel": "MAESTRIA",
+    "periodo": {
+      "id": "2026-1",
+      "periodo": "2026-1"
+    }
+  }
+]
+```
+
+---
+
+#### `GET /api/docente-periodos/:id`
+Retorna un registro por su ID compuesto.
+
+**Ejemplo:** `GET /api/docente-periodos/prof_123_2026-1`
+
+**Respuesta `200`:** objeto del docente-periodo con el periodo expandido. **`404`** si no existe.
+
+---
+
+#### `PUT /api/docente-periodos/:id`
+Actualiza parcialmente un registro.
+
+**No se permite actualizar:**
+- `profesor_id`
+- `periodo_id`
+
+**Body (ejemplo):**
+```json
+{
+  "estado": "INACTIVO",
+  "dedicacion": "PARCIAL"
+}
+```
+
+**Respuesta `200`:** objeto actualizado con el periodo expandido.
+
+**Respuesta `400`:**
+```json
+{ "message": "No se permite actualizar profesor_id o periodo_id. Elimina y crea un nuevo registro." }
+```
+
+---
+
+#### `DELETE /api/docente-periodos/:id`
+Elimina un registro de docente-periodo.
+
+**Respuesta `200`:**
+```json
+{ "message": "DocentePeriodo eliminado correctamente" }
 ```
 
 ---
@@ -388,9 +634,11 @@ DocentePeriodo
 
 - No se crea `Profesor` si los IDs en `dependencia_actual` no existen en Firestore.
 - No se crea `DocentePeriodo` con `profesor_id` inexistente.
+- No se crea `DocentePeriodo` con `periodo_id` inexistente.
 - No se elimina `Dependencia` si tiene hijas o profesores asociados.
 - No se elimina `Profesor` si tiene periodos docentes asociados.
-- En `DocentePeriodo` no se puede cambiar `profesor_id` ni `periodo` en update (eliminar y recrear).
+- No se elimina `Periodo` si tiene `docente_periodos` asociados.
+- En `DocentePeriodo` no se puede cambiar `profesor_id` ni `periodo_id` en update (eliminar y recrear).
 
 ---
 
