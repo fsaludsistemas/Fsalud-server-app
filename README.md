@@ -1,6 +1,6 @@
 # AppSaludServer
 
-API REST con Express + Firebase Firestore para gestionar dependencias, profesores y usuarios de la Universidad del Valle. Protegida con autenticación Firebase (Google) y lista blanca por colección `usuarios`.
+API REST con Express + Firebase Firestore para gestionar dependencias, profesores, credenciales académicas y usuarios de la Universidad del Valle. Protegida con autenticación Firebase (Google) y lista blanca por colección `usuarios`.
 
 ---
 
@@ -365,7 +365,7 @@ Actualiza parcialmente un profesor. Todos los campos son opcionales.
 #### `DELETE /api/profesores/:id`
 Elimina un profesor.
 
-> ⚠️ **Falla con `409`** si tiene periodos docentes asociados.
+> ⚠️ **Falla con `409`** si tiene periodos docentes asociados o credenciales asociadas.
 
 **Respuesta `200`:**
 ```json
@@ -704,6 +704,254 @@ Si el profesor no tiene asignaciones, la respuesta es un arreglo vacío: `[]`.
 
 ---
 
+### 🎓 Credenciales
+
+La colección `credenciales` guarda la hoja de vida académica del docente (eventos del CCS y factores de puntaje) en **un solo documento por profesor**. El `id` del documento es el mismo `profesor_id`.
+
+Los arrays internos (`eventos_credenciales`, títulos, experiencia, etc.) no son colecciones aparte: viajan embebidos en ese documento.
+
+#### `POST /api/credenciales`
+Crea las credenciales de un profesor. El `profesor_id` debe existir en `profesores` y no puede repetirse.
+
+**Body (mínimo):**
+```json
+{
+  "profesor_id": "prof_123"
+}
+```
+
+Los arrays vacíos y objetos por defecto los completa el servidor si no se envían.
+
+**Body (completo, ejemplo):**
+```json
+{
+  "profesor_id": "prof_123",
+  "resumen_puntos": {
+    "titulos_universitarios": 298.0,
+    "categoria": 58.0,
+    "experiencia_calificada": 40.27,
+    "productividad_academica": 13.47,
+    "puntos_totales": 409.7,
+    "ultimo_evento_numero": 5,
+    "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
+  },
+  "eventos_credenciales": [
+    {
+      "numero_evento": 1,
+      "clase": "Inclusión",
+      "dedicacion": "A - T.C.",
+      "factores_puntaje": {
+        "titulos_universitarios": { "evento": 218.0, "tot_acum": 218.0 },
+        "categoria": { "evento": 37.0, "tot_acum": 21.0 },
+        "experiencia_calificada": { "evento": 1.27, "tot_acum": 27.19 },
+        "productividad_academica": { "evento": 6.67, "tot_acum": 5.5 }
+      },
+      "puntos_del_evento": 262.94,
+      "total_puntos_acumulado": 262.94,
+      "soporte": {
+        "acta_ccs": "20",
+        "fecha": "2022-06-30T00:00:00Z",
+        "firma_presidente_url": "https://firebasestorage.googleapis.com/.../firma_20.png"
+      }
+    }
+  ],
+  "titulos_universitarios": {
+    "pregrado": [
+      {
+        "id": "tit_1",
+        "evento_no": 1,
+        "fecha_inicio": "2010-01-01T00:00:00Z",
+        "fecha_fin": "2014-04-23T00:00:00Z",
+        "titulo": "Nutricionista - Dietista",
+        "institucion_lugar": "Universidad Nacional de Colombia, Bogotá",
+        "fecha_grado": "2014-04-23T00:00:00Z",
+        "puntos": 178.0,
+        "acumulado": 178.0
+      }
+    ],
+    "posgrado": [
+      {
+        "id": "tit_2",
+        "evento_no": 1,
+        "fecha_inicio": "2018-01-01T00:00:00Z",
+        "fecha_fin": "2020-07-17T00:00:00Z",
+        "titulo": "Magíster en Políticas Públicas",
+        "institucion_lugar": "Universidad del Valle, Cali",
+        "fecha_grado": "2020-07-17T00:00:00Z",
+        "puntos": 40.0,
+        "acumulado": 40.0
+      }
+    ]
+  },
+  "historial_categoria": [
+    {
+      "inclusion_no": "1a.INCLUSION",
+      "fecha": "2022-06-30T00:00:00Z",
+      "categoria": "A",
+      "puntos": 37.0
+    }
+  ],
+  "experiencia_calificada": {
+    "tiempo_parcial": [
+      {
+        "id": "exp_tp_1",
+        "inclusion_no": 2,
+        "fecha_inicio": "2019-01-28T00:00:00Z",
+        "fecha_fin": "2019-06-12T00:00:00Z",
+        "cargo": "Docente - Ocasional",
+        "codigo_dedicacion": "1",
+        "institucion_lugar": "Institución Universitaria Escuela Nacional del Deporte",
+        "anios_o_meses": "6M",
+        "puntos": 2.0,
+        "total_acumulado": 2.0,
+        "total_con_tope": 2.0
+      }
+    ],
+    "hora_catedra": [
+      {
+        "id": "exp_hc_1",
+        "evento_no": 1,
+        "fecha_inicio": "2022-01-24T00:00:00Z",
+        "fecha_fin": "2022-06-05T00:00:00Z",
+        "cargo": "Profesor cátedra en el Departamento de Salud Pública",
+        "institucion_lugar": "Pontificia Universidad Javeriana - Cali",
+        "puntos_h_s_s": 0.167,
+        "total_h_s_s_periodo": 7.58,
+        "puntos": 1.27,
+        "total_acumulado": 1.27,
+        "total_con_tope": 1.27
+      }
+    ]
+  },
+  "productividad_academica": [
+    {
+      "id": "prod_1",
+      "inclusion_no": 1,
+      "trabajo_no": 3,
+      "titulo": "Prácticas alimentarias de familias afrodescendientes...",
+      "publicacion_detalle": "Promoc. Salud. 2022; 27 (1): 143-158 - 4 autores",
+      "clase": "1",
+      "tipo_texto": "Ar",
+      "articulo_revista": "B",
+      "puntaje_acumulado": 4.0
+    }
+  ],
+  "premios_y_patentes": [],
+  "docencia_destacada": [
+    {
+      "id": "doc_1",
+      "evento_no": 5,
+      "semestre": 2,
+      "anio": 2024,
+      "asignatura": "Nutrición y Salud - 402007C",
+      "fecha_solicitud": "2025-03-02T00:00:00Z",
+      "puntos_evento": 3.0,
+      "acumulado_puntos": 5.0
+    }
+  ],
+  "extension_destacada": []
+}
+```
+
+**Campos / valores relevantes:**
+- `eventos_credenciales[].clase`: `Inclusión`, `Ascenso`, `Actualización`
+- `historial_categoria[].categoria`: `A`, `B`, `C`, `D`
+- `experiencia_calificada.tiempo_parcial[].codigo_dedicacion`: `1`, `2`
+- `productividad_academica[].tipo_texto`: `L`, `AL`, `Ar`, `T`
+
+**Respuesta `201`:**
+```json
+{
+  "id": "prof_123",
+  "profesor_id": "prof_123",
+  "resumen_puntos": { ... },
+  "eventos_credenciales": [ ... ],
+  "titulos_universitarios": { "pregrado": [ ... ], "posgrado": [ ... ] },
+  "historial_categoria": [ ... ],
+  "experiencia_calificada": { "tiempo_parcial": [ ... ], "hora_catedra": [ ... ] },
+  "productividad_academica": [ ... ],
+  "premios_y_patentes": [],
+  "docencia_destacada": [ ... ],
+  "extension_destacada": [],
+  "updatedAt": "2026-09-01T20:00:00.000Z"
+}
+```
+
+**Posibles errores:**
+- `400` si el profesor no existe
+- `409` si ya existen credenciales para ese profesor
+
+---
+
+#### `GET /api/credenciales`
+Retorna todas las credenciales registradas.
+
+**Respuesta `200`:** array de documentos de credenciales.
+
+---
+
+#### `GET /api/credenciales/:profesorId`
+Retorna las credenciales de un profesor. El parámetro es el **ID del profesor** (mismo `id` del documento en Firestore).
+
+**Ejemplo:** `GET /api/credenciales/prof_123`
+
+**Respuesta `200`:** objeto de credenciales. **`404`** si no existe.
+
+---
+
+#### `PUT /api/credenciales/:profesorId`
+Actualiza parcialmente las credenciales. Todos los campos son opcionales, **excepto que no se permite cambiar `profesor_id`**.
+
+Para agregar un título, un evento o un ítem de experiencia, envía el array (o el objeto anidado) completo con el nuevo elemento incluido.
+
+**Body (ejemplo):**
+```json
+{
+  "resumen_puntos": {
+    "titulos_universitarios": 298.0,
+    "categoria": 58.0,
+    "experiencia_calificada": 40.27,
+    "productividad_academica": 13.47,
+    "puntos_totales": 409.7,
+    "ultimo_evento_numero": 5,
+    "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
+  },
+  "docencia_destacada": [
+    {
+      "id": "doc_1",
+      "evento_no": 5,
+      "semestre": 2,
+      "anio": 2024,
+      "asignatura": "Nutrición y Salud - 402007C",
+      "fecha_solicitud": "2025-03-02T00:00:00Z",
+      "puntos_evento": 3.0,
+      "acumulado_puntos": 5.0
+    }
+  ]
+}
+```
+
+**Respuesta `200`:** objeto actualizado con `updatedAt` renovado.
+
+**Respuesta `400`:**
+```json
+{ "message": "No se permite actualizar profesor_id. Elimina y crea un nuevo registro." }
+```
+
+---
+
+#### `DELETE /api/credenciales/:profesorId`
+Elimina las credenciales del profesor. No elimina al profesor.
+
+**Ejemplo:** `DELETE /api/credenciales/prof_123`
+
+**Respuesta `200`:**
+```json
+{ "message": "Credenciales eliminadas correctamente" }
+```
+
+---
+
 ## Respuestas de error comunes
 
 | Código | Causa |
@@ -744,6 +992,10 @@ Profesor
 
 DocentePeriodo
   └── profesor_id → Profesor
+
+Credenciales (1 documento por profesor; id = profesor_id)
+  └── profesor_id → Profesor
+  └── eventos, títulos, categoría, experiencia, productividad, premios, docencia y extensión (embebidos)
 ```
 
 ## Reglas de integridad
@@ -753,6 +1005,10 @@ DocentePeriodo
 - No se crea `DocentePeriodo` con `periodo_id` inexistente.
 - No se elimina `Dependencia` si tiene hijas o profesores asociados.
 - No se elimina `Profesor` si tiene periodos docentes asociados.
+- No se elimina `Profesor` si tiene credenciales asociadas.
+- No se crea `Credenciales` con `profesor_id` inexistente.
+- No se crea un segundo documento de `Credenciales` para el mismo profesor.
+- En `Credenciales` no se puede cambiar `profesor_id` en update (eliminar y recrear).
 - No se elimina `Periodo` si tiene `docente_periodos` asociados.
 - En `DocentePeriodo` no se puede cambiar `profesor_id` ni `periodo_id` en update (eliminar y recrear).
 - En `Asignaciones` no se puede cambiar `profesor_id` ni `docente_periodo_id` en update (eliminar y recrear).

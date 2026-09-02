@@ -7,6 +7,7 @@ import docentePeriodosRoutes from './src/routes/docentePeriodos.route.js'
 import periodosRoutes from './src/routes/periodos.route.js'
 import usuariosRoutes from './src/routes/usuarios.route.js'
 import asignacionesRoutes from './src/routes/asignaciones.route.js'
+import credencialesRoutes from './src/routes/credenciales.route.js'
 import { verificarToken } from './src/Middlewares/verificarToken.js'
 
 
@@ -29,6 +30,7 @@ app.use('/api/docente-periodos', docentePeriodosRoutes)
 app.use('/api/asignaciones', asignacionesRoutes)
 app.use('/api/periodos', periodosRoutes)
 app.use('/api/usuarios', usuariosRoutes)
+app.use('/api/credenciales', credencialesRoutes)
 
 const PORT = process.env.PORT || 3000
 
