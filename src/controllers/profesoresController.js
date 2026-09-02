@@ -17,6 +17,7 @@ const profesoresCollection = collection(db, 'profesores');
 const dependenciasCollection = collection(db, 'dependencias');
 const docentePeriodosCollection = collection(db, 'docente_periodos');
 const periodosCollection = collection(db, 'periodos');
+const credencialesCollection = collection(db, 'credenciales');
 
 const handleError = (res, error) => {
 	if (error instanceof z.ZodError) {
@@ -188,6 +189,15 @@ export const deleteProfesorController = async (req, res) => {
 		if (!docentePeriodoResult.empty) {
 			return res.status(409).json({
 				message: 'No se puede eliminar: el profesor tiene periodos docentes asociados'
+			});
+		}
+
+		const credencialesRef = doc(credencialesCollection, id);
+		const credencialesDoc = await getDoc(credencialesRef);
+
+		if (credencialesDoc.exists()) {
+			return res.status(409).json({
+				message: 'No se puede eliminar: el profesor tiene credenciales asociadas'
 			});
 		}
 
