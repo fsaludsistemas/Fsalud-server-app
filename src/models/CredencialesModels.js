@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const FactorEventoPuntajeSchema = z.object({
-  evento: z.number(),
-  tot_acum: z.number()
+  evento: z.number().optional(),
+  tot_acum: z.number().optional()
 });
 
 const FactoresPuntajeSchema = z.object({
@@ -22,11 +22,10 @@ const EventoCredencialesSchema = z.object({
   numero_evento: z.number().int().positive(),
   clase: z.enum(['1', '2', '3']).or(z.string()),
   dedicacion: z.string(),
-  factores_puntaje: FactoresPuntajeSchema,
-  puntos_del_evento: z.number(),
-  total_puntos_acumulado: z.number(),
+  factores_puntaje: FactoresPuntajeSchema.optional(),
+  puntos_del_evento: z.number().optional(),
+  total_puntos_acumulado: z.number().optional(),
   soporte: SoporteEventoSchema,
-  observaciones: z.string().optional()
 });
 
 const ResumenPuntosSchema = z.object({
@@ -45,10 +44,11 @@ const TituloPregradoSchema = z.object({
   fecha_inicio: z.string(),
   fecha_fin: z.string(),
   titulo: z.string(),
+  tipo_pregrado: z.enum(['MEDICINA_O_MUSICA', 'OTROS_PROFESIONALES']),
   institucion_lugar: z.string(),
   fecha_grado: z.string(),
-  puntos: z.number(),
-  acumulado: z.number()
+  puntos: z.number().optional(),
+  acumulado: z.number().optional()
 });
 
 const TituloPosgradoSchema = z.object({
@@ -57,10 +57,11 @@ const TituloPosgradoSchema = z.object({
   fecha_inicio: z.string(),
   fecha_fin: z.string(),
   titulo: z.string(),
+  tipo_posgrado: z.enum(['ESPECIALIZACION', 'ESPECIALIZACION_CLINICA', 'MAESTRIA', 'DOCTORADO']),
   institucion_lugar: z.string(),
   fecha_grado: z.string(),
-  puntos: z.number(),
-  acumulado: z.number()
+  puntos: z.number().optional(),
+  acumulado: z.number().optional()
 });
 
 const TitulosUniversitariosSchema = z.object({
@@ -81,9 +82,10 @@ const ExperienciaTiempoParcialSchema = z.object({
   fecha_inicio: z.string(),
   fecha_fin: z.string(),
   cargo: z.string(),
+  tipo_experiencia: z.enum(['INVESTIGACION', 'DOCENCIA', 'DIRECCION', 'OTRA_PROFESIONAL']),
   codigo_dedicacion: z.enum(['1', '2']),
   institucion_lugar: z.string(),
-  anios_o_meses: z.string(),
+  anios_o_meses: z.string().optional(),
   puntos_anio: z.number().optional(),
   puntos: z.number().optional(),
   total_acumulado: z.number().optional(),
@@ -95,7 +97,6 @@ const ExperienciaHoraCatedraSchema = z.object({
   evento_no: z.number().int().positive(),
   fecha_inicio: z.string(),
   fecha_fin: z.string(),
-  cargo: z.string(),
   institucion_lugar: z.string(),
   puntos_h_s_s: z.number().optional(),
   total_h_s_s_periodo: z.number().optional(),
@@ -115,6 +116,7 @@ const ProductividadAcademicaSchema = z.object({
   trabajo_no: z.number().int().positive(),
   titulo: z.string(),
   publicacion_detalle: z.string(),
+  numero_autores: z.number().int().min(1),
   clase: z.string().optional(),
   tipo_texto: z.enum(['L', 'AL', 'Ar', 'T']).optional(),
   articulo_revista: z.string().optional(),
@@ -126,10 +128,11 @@ const PremioPatenteSchema = z.object({
   id: z.string(),
   evento_no: z.number().int().positive(),
   premio_no: z.number().int().positive(),
+  tipo: z.enum(['PREMIO', 'PATENTE']),
   descripcion: z.string(),
   fecha: z.string(),
-  puntaje_parcial: z.number(),
-  puntaje_acumulado: z.number()
+  puntaje_parcial: z.number().optional(),
+  puntaje_acumulado: z.number().optional()
 });
 
 const DocenciaDestacadaSchema = z.object({
@@ -139,8 +142,8 @@ const DocenciaDestacadaSchema = z.object({
   anio: z.number().int(),
   asignatura: z.string(),
   fecha_solicitud: z.string(),
-  puntos_evento: z.number(),
-  acumulado_puntos: z.number()
+  puntos_evento: z.number().optional(),
+  acumulado_puntos: z.number().optional()
 });
 
 const ExtensionDestacadaSchema = z.object({
@@ -150,8 +153,8 @@ const ExtensionDestacadaSchema = z.object({
   anio: z.number().int().optional(),
   actividad: z.string(),
   fecha_solicitud: z.string().optional(),
-  puntos_evento: z.number(),
-  acumulado_puntos: z.number()
+  puntos_evento: z.number().optional(),
+  acumulado_puntos: z.number().optional()
 });
 
 const CredencialesSchema = z.object({
