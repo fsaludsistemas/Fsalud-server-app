@@ -13,6 +13,7 @@ import {
   createCredenciales,
   UpdateCredencialesSchema
 } from '../models/CredencialesModels.js';
+import PuntajeService from '../Services/PuntajeService.js';
 
 const credencialesCollection = collection(db, 'credenciales');
 const profesoresCollection = collection(db, 'profesores');
@@ -61,7 +62,9 @@ export const createCredencialesController = async (req, res) => {
       });
     }
 
-    await setDoc(credencialesRef, payload);
+    const credencialesCalculadas = PuntajeService.procesarCredenciales(payload);
+
+    await setDoc(credencialesRef, credencialesCalculadas);
     const createdDoc = await getDoc(credencialesRef);
     return res.status(201).json(toResponse(createdDoc));
   } catch (error) {
@@ -119,8 +122,12 @@ export const updateCredencialesController = async (req, res) => {
       });
     }
 
+    const currentData = credencialesDoc.data();
+    const mergedData = { ...currentData, ...updatePayload };
+    const credencialesCalculadas = PuntajeService.procesarCredenciales(mergedData);
+
     await updateDoc(credencialesRef, {
-      ...updatePayload,
+      ...credencialesCalculadas,
       updatedAt: new Date().toISOString()
     });
     const updatedDoc = await getDoc(credencialesRef);
