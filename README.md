@@ -1252,7 +1252,7 @@ Para consumirlos en el frontend, las rutas principales son:
 
 #### `PUT /api/credenciales/:profesorId`
 
-Actualiza parcialmente las credenciales. Todos los campos son opcionales, **excepto que no se permite cambiar `profesor_id`**.
+Mantiene compatibilidad con actualizaciones parciales existentes. Todos los campos son opcionales, **excepto que no se permite cambiar `profesor_id`**. Para nuevas integraciones se recomienda usar `PATCH`.
 
 Para agregar un título, un evento o un ítem de experiencia, envía el array (o el objeto anidado) completo con el nuevo elemento incluido.
 
@@ -1293,6 +1293,87 @@ Para agregar un título, un evento o un ítem de experiencia, envía el array (o
   "message": "No se permite actualizar profesor_id. Elimina y crea un nuevo registro."
 }
 ```
+
+#### `PATCH /api/credenciales/:profesorId`
+
+Actualiza parcialmente las credenciales. Esta es la ruta recomendada para guardar un
+factor individual, por ejemplo una categoría o un título. Los campos que no se envían
+se conservan en el servidor.
+
+Los arrays enviados reemplazan únicamente el array de ese factor. Por ejemplo, para
+guardar categorías se envía `historial_categoria`, y no es necesario enviar títulos,
+experiencia ni productividad:
+
+```json
+{
+  "historial_categoria": [
+    {
+      "id": "cat_1",
+      "inclusion_no": "1",
+      "fecha": "2022-06-30T00:00:00Z",
+      "categoria": "A"
+    }
+  ]
+}
+```
+
+Para guardar pregrado se envía el objeto de títulos con el array de pregrado. El
+`posgrado` existente se conserva si no se incluye:
+
+```json
+{
+  "titulos_universitarios": {
+    "pregrado": [
+      {
+        "id": "tit_1",
+        "evento_no": 1,
+        "fecha_inicio": "2010-01-01T00:00:00Z",
+        "fecha_fin": "2014-04-23T00:00:00Z",
+        "titulo": "Nutricionista - Dietista",
+        "tipo_pregrado": "OTROS_PROFESIONALES",
+        "institucion_lugar": "Universidad Nacional de Colombia, Bogotá",
+        "fecha_grado": "2014-04-23T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+El backend calcula `puntos`, `acumulado`, `resumen_puntos` y los demás campos
+calculados. El frontend no necesita enviarlos. `puntos` en `historial_categoria`
+también es opcional y se recalcula según la categoría.
+
+Por ahora `evento_no` sigue siendo obligatorio en los registros que lo usan. Su
+asignación automática se implementará posteriormente; hasta entonces el frontend
+debe enviarlo.
+
+**Premios y patentes:** el identificador depende de `tipo`:
+
+```json
+{
+  "premios_y_patentes": [
+    {
+      "id": "prem_1",
+      "evento_no": 1,
+      "premio_no": 1,
+      "tipo": "PREMIO",
+      "descripcion": "Premio Nacional de Investigación",
+      "fecha": "2024-05-10T00:00:00Z"
+    },
+    {
+      "id": "pat_1",
+      "evento_no": 2,
+      "patente_no": 1,
+      "tipo": "PATENTE",
+      "descripcion": "Patente de invención",
+      "fecha": "2025-02-10T00:00:00Z"
+    }
+  ]
+}
+```
+
+Un registro `PREMIO` requiere `premio_no`; un registro `PATENTE` requiere
+`patente_no`. No se debe enviar el campo del otro tipo. Osea que ahora segun el tipo es premio_no o patente_no
 
 ---
 
