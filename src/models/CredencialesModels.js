@@ -70,10 +70,11 @@ const TitulosUniversitariosSchema = z.object({
 });
 
 const HistorialCategoriaSchema = z.object({
+  id: z.string().optional(),
   inclusion_no: z.string(),
   fecha: z.string(),
   categoria: z.enum(['A', 'B', 'C', 'D']),
-  puntos: z.number()
+  puntos: z.number().optional(),
 });
 
 const ExperienciaTiempoParcialSchema = z.object({
@@ -124,16 +125,25 @@ const ProductividadAcademicaSchema = z.object({
   puntaje_acumulado: z.number().optional()
 });
 
-const PremioPatenteSchema = z.object({
+const PremioPatenteBaseSchema = z.object({
   id: z.string(),
   evento_no: z.number().int().positive(),
-  premio_no: z.number().int().positive(),
-  tipo: z.enum(['PREMIO', 'PATENTE']),
   descripcion: z.string(),
   fecha: z.string(),
   puntaje_parcial: z.number().optional(),
   puntaje_acumulado: z.number().optional()
 });
+
+const PremioPatenteSchema = z.discriminatedUnion('tipo', [
+  PremioPatenteBaseSchema.extend({
+    tipo: z.literal('PREMIO'),
+    premio_no: z.number().int().positive()
+  }),
+  PremioPatenteBaseSchema.extend({
+    tipo: z.literal('PATENTE'),
+    patente_no: z.number().int().positive()
+  })
+]);
 
 const DocenciaDestacadaSchema = z.object({
   id: z.string(),
@@ -173,7 +183,23 @@ const CredencialesSchema = z.object({
   extension_destacada: z.array(ExtensionDestacadaSchema).default([])
 });
 
-const UpdateCredencialesSchema = CredencialesSchema.partial();
+const UpdateCredencialesSchema = z.object({
+  resumen_puntos: ResumenPuntosSchema.optional(),
+  eventos_credenciales: z.array(EventoCredencialesSchema).optional(),
+  titulos_universitarios: z.object({
+    pregrado: z.array(TituloPregradoSchema).optional(),
+    posgrado: z.array(TituloPosgradoSchema).optional()
+  }).optional(),
+  historial_categoria: z.array(HistorialCategoriaSchema).optional(),
+  experiencia_calificada: z.object({
+    tiempo_parcial: z.array(ExperienciaTiempoParcialSchema).optional(),
+    hora_catedra: z.array(ExperienciaHoraCatedraSchema).optional()
+  }).optional(),
+  productividad_academica: z.array(ProductividadAcademicaSchema).optional(),
+  premios_y_patentes: z.array(PremioPatenteSchema).optional(),
+  docencia_destacada: z.array(DocenciaDestacadaSchema).optional(),
+  extension_destacada: z.array(ExtensionDestacadaSchema).optional()
+});
 
 const createCredenciales = (data) => {
   const validData = CredencialesSchema.parse(data);

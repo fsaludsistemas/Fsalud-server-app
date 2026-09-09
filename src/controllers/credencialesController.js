@@ -123,7 +123,18 @@ export const updateCredencialesController = async (req, res) => {
     }
 
     const currentData = credencialesDoc.data();
-    const mergedData = { ...currentData, ...updatePayload };
+    const mergedData = {
+      ...currentData,
+      ...updatePayload,
+      titulos_universitarios: {
+        ...currentData.titulos_universitarios,
+        ...updatePayload.titulos_universitarios
+      },
+      experiencia_calificada: {
+        ...currentData.experiencia_calificada,
+        ...updatePayload.experiencia_calificada
+      }
+    };
     const credencialesCalculadas = PuntajeService.procesarCredenciales(mergedData);
 
     await updateDoc(credencialesRef, {
