@@ -33,9 +33,7 @@ const UpdateAsignacionesDocenteSchema = AsignacionesDocenteSchema.partial();
 
 const createAsignacionesDocente = (data) => {
   const validData = AsignacionesDocenteSchema.parse(data);
-  const customId = `${validData.profesor_id}_${validData.docente_periodo_id}`;
   return {
-    id: customId,
     data: {
       ...validData,
       createdAt: new Date().toISOString()
