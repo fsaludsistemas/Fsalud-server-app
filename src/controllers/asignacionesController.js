@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -6,7 +7,6 @@ import {
   getDocs,
   query,
   where,
-  setDoc,
   updateDoc
 } from 'firebase/firestore';
 import { z } from 'zod';
@@ -74,16 +74,7 @@ export const createAsignacionesController = async (req, res) => {
     await validateProfesor(payload.data.profesor_id);
     await validateDocentePeriodo(payload.data.docente_periodo_id);
 
-    const asignacionesRef = doc(asignacionesCollection, payload.id);
-    const existentDoc = await getDoc(asignacionesRef);
-
-    if (existentDoc.exists()) {
-      return res.status(409).json({
-        message: 'Ya existe un registro para ese profesor y periodo'
-      });
-    }
-
-    await setDoc(asignacionesRef, payload.data);
+    const asignacionesRef = await addDoc(asignacionesCollection, payload.data);
     const createdDoc = await getDoc(asignacionesRef);
     return res.status(201).json(await enrichAsignaciones(createdDoc));
   } catch (error) {
