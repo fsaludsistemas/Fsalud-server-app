@@ -334,6 +334,42 @@ Retorna todos los profesores.
 
 ---
 
+#### `GET /api/profesores/buscar?search=<texto>`
+
+Busca profesores por coincidencia parcial en el nombre completo o en el número de identificación.
+
+**Ejemplos:**
+
+```http
+GET /api/profesores/buscar?search=juan
+GET /api/profesores/buscar?search=123456
+```
+
+El parámetro `search` es obligatorio. La búsqueda no distingue entre mayúsculas y minúsculas.
+
+**Respuesta `200`:**
+
+```json
+[
+  {
+    "id": "prof_123",
+    "tipo_identificacion": "CEDULA",
+    "numero_identificacion": "1234567890",
+    "nombres": "Juan Carlos",
+    "apellidos": "Pérez Gómez",
+    "email_institucional": "juan.perez@correounivalle.edu.co"
+  }
+]
+```
+
+**Respuesta `400`:**
+
+```json
+{ "message": "El parametro search es obligatorio" }
+```
+
+---
+
 #### `GET /api/profesores/:id`
 
 Retorna un profesor por su ID de Firestore.
@@ -773,6 +809,56 @@ Retorna todas las asignaciones asociadas a un profesor específico.
 ]
 ```
 
+---
+
+#### `GET /api/asignaciones/resumen-horas`
+
+Retorna el total de horas de un periodo docente y los totales agrupados por categoría y tipo de actividad.
+
+El parámetro `docente_periodo_id` es obligatorio. Los parámetros `categoria` y `tipo_actividad` son opcionales y permiten limitar el cálculo.
+
+**Ejemplo sin filtros:**
+
+```http
+GET /api/asignaciones/resumen-horas?docente_periodo_id=prof_123_2026-1
+```
+
+**Ejemplo con filtros:**
+
+```http
+GET /api/asignaciones/resumen-horas?docente_periodo_id=prof_123_2026-1&categoria=A&tipo_actividad=Docencia
+```
+
+**Respuesta `200`:**
+
+```json
+{
+  "docente_periodo_id": "prof_123_2026-1",
+  "filtros": {
+    "categoria": null,
+    "tipo_actividad": null
+  },
+  "total_horas_periodo": 40,
+  "horas_por_categoria": {
+    "A": 24,
+    "B": 16
+  },
+  "horas_por_tipo_actividad": {
+    "Docencia": 20,
+    "Investigación": 12,
+    "Administrativas": 8
+  }
+}
+```
+
+Cuando se envían filtros, el total y ambas agrupaciones se calculan únicamente con las asignaciones que coinciden con esos filtros.
+
+**Respuesta `400`:**
+
+```json
+{ "message": "El parametro docente_periodo_id es obligatorio" }
+```
+
 Si el profesor no tiene asignaciones, la respuesta es un arreglo vacío: `[]`.
 
 ---
@@ -782,6 +868,144 @@ Si el profesor no tiene asignaciones, la respuesta es un arreglo vacío: `[]`.
 La colección `credenciales` guarda la hoja de vida académica del docente (eventos del CCS y factores de puntaje) en **un solo documento por profesor**. El `id` del documento es el mismo `profesor_id`.
 
 Los arrays internos (`eventos_credenciales`, títulos, experiencia, etc.) no son colecciones aparte: viajan embebidos en ese documento.
+
+#### Eventos credenciales y numeración automática
+
+Un evento credencial es el registro padre de los factores que se presentan en esa
+inclusión. El servidor asigna automáticamente `numero_evento`; el frontend no debe
+enviar ese campo. También asigna el mismo número a todos los factores enviados en
+la misma operación:
+
+| Factor | Referencia al evento |
+| --- | --- |
+| Pregrado y posgrado | `evento_no` |
+| Historial de categoría | `inclusion_no` |
+| Experiencia de tiempo parcial | `inclusion_no` |
+| Hora cátedra | `evento_no` |
+| Productividad académica | `inclusion_no` |
+| Premios y patentes | `evento_no` |
+| Docencia destacada | `evento_no` |
+| Extensión destacada | `evento_no` |
+
+Varios factores pueden pertenecer al mismo evento. Por ejemplo, dos títulos de
+pregrado y una categoría pueden tener todos la referencia `2`:
+
+```json
+{
+  "numero_evento": 2,
+  "titulos_universitarios": {
+    "pregrado": [
+      { "titulo": "Medicina", "evento_no": 2 },
+      { "titulo": "Música", "evento_no": 2 }
+    ]
+  },
+  "historial_categoria": [
+    { "inclusion_no": 2, "categoria": "A" }
+  ]
+}
+```
+
+`ultimo_numero_evento` es un número entero almacenado en el documento de
+credenciales. Empieza en `0` y se actualiza al número asignado más reciente. No es
+un arreglo y no debe calcularse ni incrementarse en el frontend.
+
+#### `GET /api/credenciales/:profesorId/proximo-evento`
+
+Devuelve una vista previa del número que probablemente recibirá el siguiente evento.
+Esta consulta no reserva ni crea el evento; el número definitivo se asigna al
+confirmar mediante una transacción en el servidor.
+
+**Respuesta `200`:**
+
+```json
+{
+  "ultimo_numero_evento": 1,
+  "proximo_numero_evento": 2
+}
+```
+
+El frontend puede mostrar `Se creará el evento No. 2` antes de abrir el formulario o
+antes de pedir confirmación. Si otro usuario crea un evento antes de confirmar, el
+frontend debe mostrar el número retornado por la respuesta de creación, que siempre
+es la fuente definitiva.
+
+#### `POST /api/credenciales/:profesorId/eventos`
+
+Crea un evento y sus factores asociados de forma atómica. Si la petición se repite
+simultáneamente, Firestore garantiza que cada transacción reciba un número diferente.
+
+El frontend debe enviar los datos del evento dentro de `evento` y los factores sin
+`numero_evento`, `evento_no` ni `inclusion_no`:
+
+```json
+{
+  "evento": {
+    "clase": "Inclusión",
+    "dedicacion": "A - T.C.",
+    "categoria": "A",
+    "soporte": {
+      "acta_ccs": "20",
+      "fecha": "2026-09-14T00:00:00Z",
+      "correo_presidente": "presidente@correounivalle.edu.co"
+    }
+  },
+  "titulos_universitarios": {
+    "pregrado": [
+      {
+        "id": "tit_1",
+        "fecha_inicio": "2010-01-01T00:00:00Z",
+        "fecha_fin": "2014-04-23T00:00:00Z",
+        "titulo": "Medicina",
+        "tipo_pregrado": "MEDICINA_O_MUSICA",
+        "institucion_lugar": "Universidad del Valle",
+        "fecha_grado": "2014-04-23T00:00:00Z"
+      },
+      {
+        "id": "tit_2",
+        "fecha_inicio": "2015-01-01T00:00:00Z",
+        "fecha_fin": "2019-04-23T00:00:00Z",
+        "titulo": "Música",
+        "tipo_pregrado": "MEDICINA_O_MUSICA",
+        "institucion_lugar": "Universidad del Valle",
+        "fecha_grado": "2019-04-23T00:00:00Z"
+      }
+    ]
+  },
+  "historial_categoria": [
+    {
+      "id": "cat_1",
+      "fecha": "2026-09-14T00:00:00Z",
+      "categoria": "A"
+    }
+  ]
+}
+```
+
+**Respuesta `201`:**
+
+```json
+{
+  "numero_evento": 2,
+  "credenciales": {
+    "ultimo_numero_evento": 2,
+    "eventos_credenciales": [
+      { "numero_evento": 2, "clase": "Inclusión" }
+    ],
+    "titulos_universitarios": {
+      "pregrado": [
+        { "id": "tit_1", "evento_no": 2 },
+        { "id": "tit_2", "evento_no": 2 }
+      ]
+    },
+    "historial_categoria": [
+      { "id": "cat_1", "inclusion_no": 2 }
+    ]
+  }
+}
+```
+
+El frontend debe usar `numero_evento` de la respuesta para actualizar su estado y
+no el valor mostrado previamente en la vista previa.
 
 #### `POST /api/credenciales`
 
@@ -808,7 +1032,6 @@ Los arrays vacíos y objetos por defecto los completa el servidor si no se enví
     "experiencia_calificada": 40.27,
     "productividad_academica": 13.47,
     "puntos_totales": 409.7,
-    "ultimo_evento_numero": 5,
     "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
   },
   "eventos_credenciales": [
@@ -859,7 +1082,7 @@ Los arrays vacíos y objetos por defecto los completa el servidor si no se enví
   },
   "historial_categoria": [
     {
-      "inclusion_no": "1a.INCLUSION",
+      "inclusion_no": 1,
       "fecha": "2022-06-30T00:00:00Z",
       "categoria": "A"
     }
@@ -998,7 +1221,6 @@ Retorna las credenciales de un profesor. El parámetro es el **ID del profesor**
     "experiencia_calificada": 18,
     "productividad_academica": 26,
     "puntos_totales": 308.5,
-    "ultimo_evento_numero": 5,
     "fecha_ultima_actualizacion": "2026-09-01T20:00:00.000Z"
   },
   "eventos_credenciales": [
@@ -1053,7 +1275,7 @@ Retorna las credenciales de un profesor. El parámetro es el **ID del profesor**
   },
   "historial_categoria": [
     {
-      "inclusion_no": "1a.INCLUSION",
+      "inclusion_no": 1,
       "fecha": "2022-06-30T00:00:00Z",
       "categoria": "B",
       "puntos": 58
@@ -1266,7 +1488,6 @@ Para agregar un título, un evento o un ítem de experiencia, envía el array (o
     "experiencia_calificada": 40.27,
     "productividad_academica": 13.47,
     "puntos_totales": 409.7,
-    "ultimo_evento_numero": 5,
     "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
   },
   "docencia_destacada": [
@@ -1309,7 +1530,7 @@ experiencia ni productividad:
   "historial_categoria": [
     {
       "id": "cat_1",
-      "inclusion_no": "1",
+      "inclusion_no": 1,
       "fecha": "2022-06-30T00:00:00Z",
       "categoria": "A"
     }
@@ -1343,9 +1564,11 @@ El backend calcula `puntos`, `acumulado`, `resumen_puntos` y los demás campos
 calculados. El frontend no necesita enviarlos. `puntos` en `historial_categoria`
 también es opcional y se recalcula según la categoría.
 
-Por ahora `evento_no` sigue siendo obligatorio en los registros que lo usan. Su
-asignación automática se implementará posteriormente; hasta entonces el frontend
-debe enviarlo.
+Para crear un evento nuevo se recomienda usar `POST /api/credenciales/:profesorId/eventos`.
+En esa ruta el backend asigna automáticamente `numero_evento`, `evento_no` e
+`inclusion_no`. La ruta `PATCH` continúa disponible para actualizaciones parciales
+de datos existentes; cuando se use directamente, los campos de referencia deben
+corresponder a un evento ya existente.
 
 **Premios y patentes:** el identificador depende de `tipo`:
 

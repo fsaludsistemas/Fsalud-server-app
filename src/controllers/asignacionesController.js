@@ -111,6 +111,56 @@ export const getAsignacionesByProfesorController = async (req, res) => {
   }
 };
 
+export const getResumenHorasController = async (req, res) => {
+  try {
+    const { docente_periodo_id, categoria, tipo_actividad } = req.query;
+
+    if (!docente_periodo_id) {
+      return res.status(400).json({
+        message: 'El parametro docente_periodo_id es obligatorio'
+      });
+    }
+
+    const asignacionesQuery = query(
+      asignacionesCollection,
+      where('docente_periodo_id', '==', docente_periodo_id)
+    );
+    const snapshot = await getDocs(asignacionesQuery);
+    const asignaciones = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .filter((asignacion) => !categoria || asignacion.categoria === categoria)
+      .filter((asignacion) => !tipo_actividad || asignacion.tipo_actividad === tipo_actividad);
+
+    const horasPorCategoria = {};
+    const horasPorTipoActividad = {};
+    const totalHoras = asignaciones.reduce((total, asignacion) => {
+      const horas = Number(asignacion.numero_horas) || 0;
+
+      if (asignacion.categoria) {
+        horasPorCategoria[asignacion.categoria] =
+          (horasPorCategoria[asignacion.categoria] || 0) + horas;
+      }
+
+      if (asignacion.tipo_actividad) {
+        horasPorTipoActividad[asignacion.tipo_actividad] =
+          (horasPorTipoActividad[asignacion.tipo_actividad] || 0) + horas;
+      }
+
+      return total + horas;
+    }, 0);
+
+    return res.status(200).json({
+      docente_periodo_id,
+      filtros: { categoria: categoria || null, tipo_actividad: tipo_actividad || null },
+      total_horas_periodo: totalHoras,
+      horas_por_categoria: horasPorCategoria,
+      horas_por_tipo_actividad: horasPorTipoActividad
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 export const getAsignacionesByIdController = async (req, res) => {
   try {
     const { id } = req.params;
