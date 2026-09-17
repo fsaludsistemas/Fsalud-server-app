@@ -121,6 +121,35 @@ export const getProfesoresController = async (_req, res) => {
 	}
 };
 
+export const searchProfesoresController = async (req, res) => {
+
+	try {
+		const search = String(req.query.search || '').trim().toLowerCase();
+
+		if (!search) {
+			return res.status(400).json({
+				message: 'El parametro search es obligatorio'
+			});
+		}
+
+		const snapshot = await getDocs(profesoresCollection);
+		const profesores = snapshot.docs
+			.map((item) => ({ id: item.id, ...item.data() }))
+			.filter((profesor) => {
+				const nombreCompleto = `${profesor.nombres || ''} ${profesor.apellidos || ''}`
+					.toLowerCase()
+					.trim();
+				const numeroIdentificacion = String(profesor.numero_identificacion || '').toLowerCase();
+
+				return nombreCompleto.includes(search) || numeroIdentificacion.includes(search);
+			});
+
+		return res.status(200).json(profesores);
+	} catch (error) {
+		return handleError(res, error);
+	}
+};
+
 export const getProfesorByIdController = async (req, res) => {
 	try {
 		const { id } = req.params;

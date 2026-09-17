@@ -36,7 +36,9 @@ const createAsignacionesDocente = (data) => {
   return {
     data: {
       ...validData,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+
     }
   };
 };

@@ -15,13 +15,15 @@ const FactoresPuntajeSchema = z.object({
 const SoporteEventoSchema = z.object({
   acta_ccs: z.string(),
   fecha: z.string(),
+  correo_presidente: z.string().email('Debe ser un correo válido'),
   firma_presidente_url: z.string().optional()
 });
 
 const EventoCredencialesSchema = z.object({
   numero_evento: z.number().int().positive(),
-  clase: z.enum(['1', '2', '3']).or(z.string()),
-  dedicacion: z.string(),
+  clase: z.enum(['1', '2', '3', '4', '5']).or(z.string()),
+  dedicacion:  z.enum(['TC', 'MT', 'HC', 'T.C.', 'M.T.', 'H.C.']).or(z.string()),
+  categoria: z.enum(['A', 'B', 'C', 'D']).optional(),
   factores_puntaje: FactoresPuntajeSchema.optional(),
   puntos_del_evento: z.number().optional(),
   total_puntos_acumulado: z.number().optional(),
@@ -34,7 +36,6 @@ const ResumenPuntosSchema = z.object({
   experiencia_calificada: z.number(),
   productividad_academica: z.number(),
   puntos_totales: z.number(),
-  ultimo_evento_numero: z.number().int().nonnegative(),
   fecha_ultima_actualizacion: z.string()
 });
 
@@ -71,7 +72,7 @@ const TitulosUniversitariosSchema = z.object({
 
 const HistorialCategoriaSchema = z.object({
   id: z.string().optional(),
-  inclusion_no: z.string(),
+  inclusion_no: z.number().int().positive(),
   fecha: z.string(),
   categoria: z.enum(['A', 'B', 'C', 'D']),
   puntos: z.number().optional(),
@@ -145,6 +146,17 @@ const PremioPatenteSchema = z.discriminatedUnion('tipo', [
   })
 ]);
 
+const PremioPatenteEventoSchema = z.discriminatedUnion('tipo', [
+  PremioPatenteBaseSchema.omit({ evento_no: true }).extend({
+    tipo: z.literal('PREMIO'),
+    premio_no: z.number().int().positive()
+  }),
+  PremioPatenteBaseSchema.omit({ evento_no: true }).extend({
+    tipo: z.literal('PATENTE'),
+    patente_no: z.number().int().positive()
+  })
+]);
+
 const DocenciaDestacadaSchema = z.object({
   id: z.string(),
   evento_no: z.number().int().positive(),
@@ -167,9 +179,41 @@ const ExtensionDestacadaSchema = z.object({
   acumulado_puntos: z.number().optional()
 });
 
+const CrearEventoCredencialSchema = z.object({
+  evento: EventoCredencialesSchema.omit({ numero_evento: true }),
+  titulos_universitarios: z.object({
+    pregrado: z.array(TituloPregradoSchema.omit({ evento_no: true })).default([]),
+    posgrado: z.array(TituloPosgradoSchema.omit({ evento_no: true })).default([])
+  }).default({ pregrado: [], posgrado: [] }),
+  historial_categoria: z.array(
+    HistorialCategoriaSchema.omit({ inclusion_no: true })
+  ).default([]),
+  experiencia_calificada: z.object({
+    tiempo_parcial: z.array(
+      ExperienciaTiempoParcialSchema.omit({ inclusion_no: true })
+    ).default([]),
+    hora_catedra: z.array(
+      ExperienciaHoraCatedraSchema.omit({ evento_no: true })
+    ).default([])
+  }).default({ tiempo_parcial: [], hora_catedra: [] }),
+  productividad_academica: z.array(
+    ProductividadAcademicaSchema.omit({ inclusion_no: true })
+  ).default([]),
+  premios_y_patentes: z.array(
+    PremioPatenteEventoSchema
+  ).default([]),
+  docencia_destacada: z.array(
+    DocenciaDestacadaSchema.omit({ evento_no: true })
+  ).default([]),
+  extension_destacada: z.array(
+    ExtensionDestacadaSchema.omit({ evento_no: true })
+  ).default([])
+});
+
 const CredencialesSchema = z.object({
   profesor_id: z.string().min(1, 'El ID del profesor es obligatorio'),
   resumen_puntos: ResumenPuntosSchema.optional(),
+  ultimo_numero_evento: z.number().int().nonnegative().default(0),
   eventos_credenciales: z.array(EventoCredencialesSchema).default([]),
   titulos_universitarios: TitulosUniversitariosSchema.default({ pregrado: [], posgrado: [] }),
   historial_categoria: z.array(HistorialCategoriaSchema).default([]),
@@ -213,6 +257,7 @@ const createCredenciales = (data) => {
 export {
   CredencialesSchema,
   UpdateCredencialesSchema,
+  CrearEventoCredencialSchema,
   createCredenciales,
   EventoCredencialesSchema,
   TituloPregradoSchema,
