@@ -72,6 +72,7 @@ export const verificarToken = async (req, res, next) => {
       dependencia_actual: usuarioData.dependencia_actual ?? null,
       usuarioId: usuarioDoc.id
     };
+    req.firebaseIdToken = idToken;
 
     next();
   } catch (error) {

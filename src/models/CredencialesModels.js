@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const FactorEventoPuntajeSchema = z.object({
-  evento: z.number().optional(),
-  tot_acum: z.number().optional()
+  puntos_evento: z.number().nonnegative().optional(),
+  total_acumulado: z.number().nonnegative().optional()
 });
 
 const FactoresPuntajeSchema = z.object({
@@ -16,7 +16,8 @@ const SoporteEventoSchema = z.object({
   acta_ccs: z.string(),
   fecha: z.string(),
   correo_presidente: z.string().email('Debe ser un correo válido'),
-  firma_presidente_url: z.string().optional()
+  firma_presidente_url: z.string().optional(),
+  url_documento_acta: z.string().optional()
 });
 
 const EventoCredencialesSchema = z.object({
@@ -25,8 +26,8 @@ const EventoCredencialesSchema = z.object({
   dedicacion:  z.enum(['TC', 'MT', 'HC', 'T.C.', 'M.T.', 'H.C.']).or(z.string()),
   categoria: z.enum(['A', 'B', 'C', 'D']).optional(),
   factores_puntaje: FactoresPuntajeSchema.optional(),
-  puntos_del_evento: z.number().optional(),
-  total_puntos_acumulado: z.number().optional(),
+  puntos_evento: z.number().nonnegative().optional(),
+  total_acumulado: z.number().nonnegative().optional(),
   soporte: SoporteEventoSchema,
 });
 
@@ -35,7 +36,8 @@ const ResumenPuntosSchema = z.object({
   categoria: z.number(),
   experiencia_calificada: z.number(),
   productividad_academica: z.number(),
-  puntos_totales: z.number(),
+  total_acumulado: z.number().nonnegative(),
+  puntos_totales: z.number().nonnegative().optional(),
   fecha_ultima_actualizacion: z.string()
 });
 
@@ -49,7 +51,8 @@ const TituloPregradoSchema = z.object({
   institucion_lugar: z.string(),
   fecha_grado: z.string(),
   puntos: z.number().optional(),
-  acumulado: z.number().optional()
+  acumulado: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const TituloPosgradoSchema = z.object({
@@ -62,7 +65,8 @@ const TituloPosgradoSchema = z.object({
   institucion_lugar: z.string(),
   fecha_grado: z.string(),
   puntos: z.number().optional(),
-  acumulado: z.number().optional()
+  acumulado: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const TitulosUniversitariosSchema = z.object({
@@ -76,6 +80,7 @@ const HistorialCategoriaSchema = z.object({
   fecha: z.string(),
   categoria: z.enum(['A', 'B', 'C', 'D']),
   puntos: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const ExperienciaTiempoParcialSchema = z.object({
@@ -91,7 +96,8 @@ const ExperienciaTiempoParcialSchema = z.object({
   puntos_anio: z.number().optional(),
   puntos: z.number().optional(),
   total_acumulado: z.number().optional(),
-  total_con_tope: z.number().optional()
+  total_con_tope: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const ExperienciaHoraCatedraSchema = z.object({
@@ -104,7 +110,8 @@ const ExperienciaHoraCatedraSchema = z.object({
   total_h_s_s_periodo: z.number().optional(),
   puntos: z.number().optional(),
   total_acumulado: z.number().optional(),
-  total_con_tope: z.number().optional()
+  total_con_tope: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const ExperienciaCalificadaSchema = z.object({
@@ -123,7 +130,8 @@ const ProductividadAcademicaSchema = z.object({
   tipo_texto: z.enum(['L', 'AL', 'Ar', 'T']).optional(),
   articulo_revista: z.string().optional(),
   libro: z.number().optional(),
-  puntaje_acumulado: z.number().optional()
+  puntaje_acumulado: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const PremioPatenteBaseSchema = z.object({
@@ -132,7 +140,8 @@ const PremioPatenteBaseSchema = z.object({
   descripcion: z.string(),
   fecha: z.string(),
   puntaje_parcial: z.number().optional(),
-  puntaje_acumulado: z.number().optional()
+  puntaje_acumulado: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const PremioPatenteSchema = z.discriminatedUnion('tipo', [
@@ -165,7 +174,8 @@ const DocenciaDestacadaSchema = z.object({
   asignatura: z.string(),
   fecha_solicitud: z.string(),
   puntos_evento: z.number().optional(),
-  acumulado_puntos: z.number().optional()
+  acumulado_puntos: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const ExtensionDestacadaSchema = z.object({
@@ -176,7 +186,8 @@ const ExtensionDestacadaSchema = z.object({
   actividad: z.string(),
   fecha_solicitud: z.string().optional(),
   puntos_evento: z.number().optional(),
-  acumulado_puntos: z.number().optional()
+  acumulado_puntos: z.number().optional(),
+  url_soporte: z.string().optional(),
 });
 
 const CrearEventoCredencialSchema = z.object({
@@ -250,7 +261,8 @@ const createCredenciales = (data) => {
   const now = new Date().toISOString();
   return {
     ...validData,
-    updatedAt: now
+    updatedAt: now,
+    createdAt: new Date().toISOString()
   };
 };
 
