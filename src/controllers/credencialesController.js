@@ -19,6 +19,7 @@ import PuntajeService from '../Services/PuntajeService.js';
 
 const credencialesCollection = collection(db, 'credenciales');
 const profesoresCollection = collection(db, 'profesores');
+const CREDENCIALES_EDITABLES_DURANTE_MS = 24 * 60 * 60 * 1000;
 
 const handleError = (res, error) => {
   if (error instanceof z.ZodError) {
@@ -59,6 +60,20 @@ const getNextEventNumber = (data) => {
     0
   );
   return Math.max(storedNumber, highestEventNumber) + 1;
+};
+
+const validateEditWindow = (data) => {
+  const createdAt = new Date(data.createdAt).getTime();
+  const editWindowExpired = !Number.isFinite(createdAt)
+    || Date.now() - createdAt > CREDENCIALES_EDITABLES_DURANTE_MS;
+
+  if (editWindowExpired) {
+    const error = new Error(
+      'Las credenciales solo pueden editarse durante las primeras 24 horas'
+    );
+    error.statusCode = 403;
+    throw error;
+  }
 };
 
 const addEventNumberToFactors = (payload, eventNumber) => ({
@@ -331,6 +346,7 @@ export const updateCredencialesController = async (req, res) => {
     }
 
     const currentData = credencialesDoc.data();
+    validateEditWindow(currentData);
     const mergedData = {
       ...currentData,
       ...updatePayload,
@@ -353,6 +369,9 @@ export const updateCredencialesController = async (req, res) => {
     const updatedDoc = await getDoc(credencialesRef);
     return res.status(200).json(toResponse(updatedDoc));
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     return handleError(res, error);
   }
 };

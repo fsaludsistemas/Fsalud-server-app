@@ -80,6 +80,135 @@ const nuevo = await apiFetch("/profesores", {              // POST
 
 ---
 
+### Archivos en Firebase Cloud Storage
+
+El backend no usa `service account` ni `firebase-admin` para Storage. Los archivos se suben directamente desde el frontend a la API REST de Firebase Storage usando el mismo Firebase ID Token del usuario autenticado.
+
+Regla esperada del bucket:
+
+```js
+allow read, write: if request.auth != null;
+```
+
+Flujo recomendado:
+
+1. El frontend obtiene un `idToken` fresco con Firebase Auth.
+2. El frontend pide al backend un destino de subida con `POST /api/storage/upload-target`.
+3. El frontend sube el archivo a `uploadUrl` con `Authorization: Bearer <idToken>`.
+4. Si Storage responde OK, el frontend guarda `downloadUrl` en el campo del modelo que corresponda.
+
+#### `POST /api/storage/upload-target`
+
+Genera una ruta segura dentro del bucket y devuelve las URLs REST para subir y leer el archivo. Este endpoint no recibe el archivo; solo prepara el destino.
+
+**Body:**
+
+```json
+{
+  "profesor_id": "prof_123",
+  "nombre_archivo": "soporte.pdf",
+  "content_type": "application/pdf",
+  "tipo": "SOPORTE_CREDENCIAL",
+  "factor": "premios_y_patentes",
+  "referencia_id": "prem_1"
+}
+```
+
+**Valores validos de `tipo`:** `FOTO_PROFESOR`, `SOPORTE_CREDENCIAL`, `ACTA_CCS`, `FIRMA_PRESIDENTE`
+
+**Valores validos de `factor`:** `titulos_universitarios`, `historial_categoria`, `experiencia_calificada`, `productividad_academica`, `premios_y_patentes`, `docencia_destacada`, `extension_destacada`, `eventos_credenciales`
+
+`factor` aplica principalmente para `SOPORTE_CREDENCIAL`. `referencia_id` puede ser el `id` del factor, el numero de evento o cualquier referencia estable que use el frontend.
+
+**Respuesta `200`:**
+
+```json
+{
+  "bucket": "fsalud-server.firebasestorage.app",
+  "path": "credenciales/prof_123/soportes/premios_y_patentes/prem_1/2026-09-22T10-15-20-000Z_ab12cd34.pdf",
+  "uploadUrl": "https://firebasestorage.googleapis.com/v0/b/fsalud-server.firebasestorage.app/o?uploadType=media&name=credenciales%2Fprof_123%2F...",
+  "downloadUrl": "https://firebasestorage.googleapis.com/v0/b/fsalud-server.firebasestorage.app/o/credenciales%2Fprof_123%2F...?alt=media",
+  "method": "POST",
+  "headers": {
+    "Authorization": "Bearer <idToken>",
+    "Content-Type": "application/pdf"
+  },
+  "guardar_en": "campo url_* correspondiente"
+}
+```
+
+**Subida desde el frontend:**
+
+```js
+const token = await getIdToken();
+
+const target = await apiFetch("/storage/upload-target", {
+  method: "POST",
+  body: JSON.stringify({
+    profesor_id: profesorId,
+    nombre_archivo: file.name,
+    content_type: file.type,
+    tipo: "SOPORTE_CREDENCIAL",
+    factor: "premios_y_patentes",
+    referencia_id: "prem_1"
+  })
+});
+
+const uploadResponse = await fetch(target.uploadUrl, {
+  method: target.method,
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": file.type
+  },
+  body: file
+});
+
+if (!uploadResponse.ok) {
+  throw new Error("No se pudo subir el archivo");
+}
+
+// Luego guardar target.downloadUrl en el documento correspondiente.
+```
+
+Campos donde se guardan URLs:
+
+- Foto del profesor: `profesores.foto_url`
+- Soporte de acta del evento: `eventos_credenciales[].soporte.url_documento_acta`
+- Firma del presidente: `eventos_credenciales[].soporte.firma_presidente_url`
+- Soportes de factores: `url_soporte` en pregrado, posgrado, historial de categoria, experiencia, productividad, premios y patentes, docencia destacada y extension destacada
+
+#### `GET /api/storage/file`
+
+Este endpoint funciona como proxy para leer archivos sin que el frontend tenga que hacer una petición directa al bucket. De esta forma no es necesario modificar el CORS de Firebase Storage. Requiere el mismo `Authorization: Bearer <idToken>` de los demás endpoints.
+
+El parámetro `path` debe ser la ruta retornada por `upload-target`, por ejemplo:
+
+```text
+GET /api/storage/file?path=profesores%2Fprof_123%2Ffoto%2Farchivo.jpeg
+```
+
+Ejemplo para mostrar una imagen o PDF desde el frontend:
+
+```js
+const token = await getIdToken();
+const filePath = encodeURIComponent(path);
+const response = await fetch(
+  `${API_URL}/api/storage/file?path=${filePath}`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
+if (!response.ok) throw new Error('No se pudo cargar el archivo');
+
+const blob = await response.blob();
+const localUrl = URL.createObjectURL(blob);
+window.open(localUrl, '_blank');
+// Para imágenes: imageElement.src = localUrl;
+```
+
+El backend conserva el `Content-Type` del archivo y lo entrega como `inline`. El frontend debe guardar preferiblemente el `path` además de `downloadUrl`, ya que el proxy recibe `path`.
+
+---
+
 ### 🔐 Usuarios (lista blanca)
 
 > Los usuarios **no se crean desde el login** — se registran manualmente en Firestore o vía este CRUD por un administrador.
@@ -929,6 +1058,49 @@ antes de pedir confirmación. Si otro usuario crea un evento antes de confirmar,
 frontend debe mostrar el número retornado por la respuesta de creación, que siempre
 es la fuente definitiva.
 
+#### Puntajes por evento y acumulados
+
+El servidor calcula los puntajes derivados después de agrupar los registros por su
+referencia `evento_no` o `inclusion_no`. Cada evento contiene cuatro factores:
+
+- `puntos_evento`: puntos nuevos que se reconocen en ese evento para el factor.
+- `total_acumulado`: suma de los `puntos_evento` de ese factor desde el primer evento
+  hasta el evento actual.
+
+Por ejemplo, si categoría obtiene 38 puntos en el evento 1 y 10 puntos en el evento
+2, el resultado es:
+
+```json
+{
+  "evento_1": {
+    "categoria": { "puntos_evento": 38, "total_acumulado": 38 }
+  },
+  "evento_2": {
+    "categoria": { "puntos_evento": 10, "total_acumulado": 48 }
+  }
+}
+```
+
+Los totales del evento se calculan así:
+
+```text
+eventos_credenciales[].puntos_evento
+  = suma de los puntos nuevos de los cuatro factores
+
+eventos_credenciales[].total_acumulado
+  = suma de los acumulados actuales de los cuatro factores
+
+resumen_puntos.total_acumulado
+  = total acumulado del último evento
+```
+
+Los premios, patentes, docencia destacada y extensión destacada hacen parte de
+`productividad_academica`. Sus puntos se incluyen tanto en el factor de productividad
+de cada evento como en `resumen_puntos.productividad_academica`.
+
+El frontend no debe enviar `factores_puntaje`, `puntos_evento`, `total_acumulado` ni
+`resumen_puntos`; el backend los recalcula para evitar acumulados inconsistentes.
+
 #### `POST /api/credenciales/:profesorId/eventos`
 
 Crea un evento y sus factores asociados de forma atómica. Si la petición se repite
@@ -1031,7 +1203,7 @@ Los arrays vacíos y objetos por defecto los completa el servidor si no se enví
     "categoria": 58.0,
     "experiencia_calificada": 40.27,
     "productividad_academica": 13.47,
-    "puntos_totales": 409.7,
+    "total_acumulado": 409.7,
     "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
   },
   "eventos_credenciales": [
@@ -1040,13 +1212,13 @@ Los arrays vacíos y objetos por defecto los completa el servidor si no se enví
       "clase": "Inclusión",
       "dedicacion": "A - T.C.",
       "factores_puntaje": {
-        "titulos_universitarios": { "evento": 218.0, "tot_acum": 218.0 },
-        "categoria": { "evento": 37.0, "tot_acum": 21.0 },
-        "experiencia_calificada": { "evento": 1.27, "tot_acum": 27.19 },
-        "productividad_academica": { "evento": 6.67, "tot_acum": 5.5 }
+        "titulos_universitarios": { "puntos_evento": 218.0, "total_acumulado": 218.0 },
+        "categoria": { "puntos_evento": 37.0, "total_acumulado": 37.0 },
+        "experiencia_calificada": { "puntos_evento": 1.27, "total_acumulado": 1.27 },
+        "productividad_academica": { "puntos_evento": 6.67, "total_acumulado": 6.67 }
       },
-      "puntos_del_evento": 262.94,
-      "total_puntos_acumulado": 262.94,
+      "puntos_evento": 262.94,
+      "total_acumulado": 262.94,
       "soporte": {
         "acta_ccs": "20",
         "fecha": "2022-06-30T00:00:00Z",
@@ -1220,7 +1392,7 @@ Retorna las credenciales de un profesor. El parámetro es el **ID del profesor**
     "categoria": 58,
     "experiencia_calificada": 18,
     "productividad_academica": 26,
-    "puntos_totales": 308.5,
+    "total_acumulado": 308.5,
     "fecha_ultima_actualizacion": "2026-09-01T20:00:00.000Z"
   },
   "eventos_credenciales": [
@@ -1229,13 +1401,13 @@ Retorna las credenciales de un profesor. El parámetro es el **ID del profesor**
       "clase": "Inclusión",
       "dedicacion": "A - T.C.",
       "factores_puntaje": {
-        "titulos_universitarios": { "evento": 218, "tot_acum": 218 },
-        "categoria": { "evento": 37, "tot_acum": 37 },
-        "experiencia_calificada": { "evento": 8, "tot_acum": 8 },
-        "productividad_academica": { "evento": 20, "tot_acum": 20 }
+        "titulos_universitarios": { "puntos_evento": 218, "total_acumulado": 218 },
+        "categoria": { "puntos_evento": 37, "total_acumulado": 37 },
+        "experiencia_calificada": { "puntos_evento": 8, "total_acumulado": 8 },
+        "productividad_academica": { "puntos_evento": 20, "total_acumulado": 20 }
       },
-      "puntos_del_evento": 283,
-      "total_puntos_acumulado": 283,
+      "puntos_evento": 283,
+      "total_acumulado": 283,
       "soporte": {
         "acta_ccs": "20",
         "fecha": "2022-06-30T00:00:00Z",
@@ -1452,7 +1624,7 @@ campo acumulado de cada registro representa el total acumulado hasta ese registr
     "categoria": 58,
     "experiencia_calificada": 18,
     "productividad_academica": 26,
-    "puntos_totales": 350
+    "total_acumulado": 350
   }
 }
 ```
@@ -1468,7 +1640,7 @@ Para consumirlos en el frontend, las rutas principales son:
 - Premios y patentes: `premios_y_patentes[].puntaje_acumulado`
 - Docencia destacada: `docencia_destacada[].acumulado_puntos`
 - Extensión destacada: `extension_destacada[].acumulado_puntos`
-- Total general: `resumen_puntos.puntos_totales`
+- Total general: `resumen_puntos.total_acumulado`
 
 ---
 
@@ -1487,7 +1659,7 @@ Para agregar un título, un evento o un ítem de experiencia, envía el array (o
     "categoria": 58.0,
     "experiencia_calificada": 40.27,
     "productividad_academica": 13.47,
-    "puntos_totales": 409.7,
+    "total_acumulado": 409.7,
     "fecha_ultima_actualizacion": "2026-07-09T00:00:00Z"
   },
   "docencia_destacada": [

@@ -96,7 +96,7 @@ class PuntajeService {
       return { ...h, puntos };
     });
 
-    const total = registros.length > 0 ? registros[registros.length - 1].puntos : 0;
+    const total = registros.reduce((acumulado, registro) => acumulado + registro.puntos, 0);
     return { registros, total };
   }
 
@@ -208,10 +208,85 @@ class PuntajeService {
       else if (numAutores >= 6) puntos = puntosBase / (numAutores / 2);
 
       acumulado += puntos;
-      return { ...p, puntaje_acumulado: Number(acumulado.toFixed(2)) };
+      return {
+        ...p,
+        puntos: Number(puntos.toFixed(2)),
+        puntaje_acumulado: Number(acumulado.toFixed(2))
+      };
     });
 
     return { registros, acumulado };
+  }
+
+  static calcularPuntajesPorEvento(credenciales) {
+    const eventos = [...(credenciales.eventos_credenciales || [])]
+      .sort((a, b) => a.numero_evento - b.numero_evento);
+    const acumulados = {
+      titulos_universitarios: 0,
+      categoria: 0,
+      experiencia_calificada: 0,
+      productividad_academica: 0
+    };
+    const suma = (items, numeroEvento, obtenerPuntos) => items
+      .filter((item) => (item.evento_no ?? item.inclusion_no) === numeroEvento)
+      .reduce((total, item) => total + (obtenerPuntos(item) || 0), 0);
+
+    return eventos.map((evento) => {
+      const numeroEvento = evento.numero_evento;
+      const puntosEvento = {
+        titulos_universitarios: suma([
+          ...(credenciales.titulos_universitarios?.pregrado || []),
+          ...(credenciales.titulos_universitarios?.posgrado || [])
+        ], numeroEvento, (item) => item.puntos),
+        categoria: suma(
+          credenciales.historial_categoria || [],
+          numeroEvento,
+          (item) => item.puntos
+        ),
+        experiencia_calificada: suma([
+          ...(credenciales.experiencia_calificada?.tiempo_parcial || []),
+          ...(credenciales.experiencia_calificada?.hora_catedra || [])
+        ], numeroEvento, (item) => item.puntos),
+        productividad_academica: suma(
+          credenciales.productividad_academica || [],
+          numeroEvento,
+          (item) => item.puntos
+        ) + suma(
+          credenciales.premios_y_patentes || [],
+          numeroEvento,
+          (item) => item.puntaje_parcial
+        ) + suma(
+          credenciales.docencia_destacada || [],
+          numeroEvento,
+          (item) => item.puntos_evento
+        ) + suma(
+          credenciales.extension_destacada || [],
+          numeroEvento,
+          (item) => item.puntos_evento
+        )
+      };
+
+      const factoresPuntaje = Object.fromEntries(
+        Object.entries(puntosEvento).map(([factor, puntos]) => {
+          acumulados[factor] += puntos;
+          return [factor, {
+            puntos_evento: Number(puntos.toFixed(2)),
+            total_acumulado: Number(acumulados[factor].toFixed(2))
+          }];
+        })
+      );
+      const puntosDelEvento = Object.values(puntosEvento)
+        .reduce((total, puntos) => total + puntos, 0);
+      const totalAcumulado = Object.values(acumulados)
+        .reduce((total, puntos) => total + puntos, 0);
+
+      return {
+        ...evento,
+        factores_puntaje: factoresPuntaje,
+        puntos_evento: Number(puntosDelEvento.toFixed(2)),
+        total_acumulado: Number(totalAcumulado.toFixed(2))
+      };
+    });
   }
 
   /**
@@ -286,24 +361,27 @@ class PuntajeService {
     const extensionCalc = this.calcularDocenciaExtension(credenciales.extension_destacada || [], categoriaActual);
     credenciales.extension_destacada = extensionCalc.registros;
 
-    // Calcular el resumen de puntos
-    const puntos_totales = 
-      pregradoCalc.acumulado + 
-      posgradoCalc.acumulado + 
-      categoriaCalc.total + 
-      experienciaCalc.acumulado + 
-      horaCatedraCalc.acumulado + 
-      productividadCalc.acumulado + 
-      premiosCalc.acumulado + 
-      docenciaCalc.acumulado + 
+    credenciales.eventos_credenciales = this.calcularPuntajesPorEvento(credenciales);
+    const productividadTotal =
+      productividadCalc.acumulado +
+      premiosCalc.acumulado +
+      docenciaCalc.acumulado +
       extensionCalc.acumulado;
+    const totalAcumulado =
+      pregradoCalc.acumulado +
+      posgradoCalc.acumulado +
+      categoriaCalc.total +
+      experienciaCalc.acumulado +
+      horaCatedraCalc.acumulado +
+      productividadTotal;
 
     credenciales.resumen_puntos = {
       titulos_universitarios: Number((pregradoCalc.acumulado + posgradoCalc.acumulado).toFixed(2)),
       categoria: Number(categoriaCalc.total.toFixed(2)),
       experiencia_calificada: Number((experienciaCalc.acumulado + horaCatedraCalc.acumulado).toFixed(2)),
-      productividad_academica: Number((productividadCalc.acumulado + docenciaCalc.acumulado + extensionCalc.acumulado).toFixed(2)),
-      puntos_totales: Number(puntos_totales.toFixed(2)),
+      productividad_academica: Number(productividadTotal.toFixed(2)),
+      total_acumulado: Number(totalAcumulado.toFixed(2)),
+      puntos_totales: Number(totalAcumulado.toFixed(2)),
       ultimo_evento_numero: credenciales.resumen_puntos?.ultimo_evento_numero || 1,
       fecha_ultima_actualizacion: new Date().toISOString()
     };
