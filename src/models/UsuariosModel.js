@@ -7,12 +7,12 @@ const BaseUsuarioSchema = z.object({
   permiso: z.enum(['ADMINISTRADOR', 'LECTURA', 'SISTEMAS', 'EDITOR', 'DIRECTOR ESCUELA', 'DIRECTOR OFICINA', 'PRESIDENTE']),
   // IDs de la ESCUELA u OFICINA a la que pertenece el usuario
   dependencia_actual: z.object({
-    escuela_o_oficina_id: z.string({ required_error: 'ID de Escuela u Oficina es requerido' }),
+    escuela_o_oficina_id: z.string({ required_error: 'ID de Escuela u Oficina es requerido' }).optional(),
     departamento_id: z.string().optional(),
     seccion_id: z.string().optional(),
     // IDs de dependencias superiores para búsquedas jerárquicas rápidas
-    ancestros: z.array(z.string()).default([])
-  }).optional(),
+    ancestros: z.array(z.string()).default([]).optional()
+  }).optional().nullable(),
   
   estado: z.enum(['ACTIVO', 'INACTIVO']).default('ACTIVO')
 });
