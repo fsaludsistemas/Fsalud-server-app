@@ -24,6 +24,6 @@ export const enviarNotificacionFirma = async ({ correoPresidente, profesorId, nu
       <p>Detalle:</p>
       <p><strong>Profesor:</strong> ${nombreProfesor || profesorId}</p>
       <p><strong>Número de evento:</strong> ${numeroEvento}</p>
-      <p><a href="${url}">Le solicitamos comedidamente revisar y agregar firma</a></p>`
+      <p>Le solicitamos comedidamente revisar y agregar firma.</p>`
   });
 };
