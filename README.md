@@ -213,6 +213,31 @@ El backend conserva el `Content-Type` del archivo y lo entrega como `inline`. El
 
 > Los usuarios **no se crean desde el login** — se registran manualmente en Firestore o vía este CRUD por un administrador.
 
+#### Acceso al módulo de usuarios
+
+Todas las rutas de `/api/usuarios` requieren un Firebase ID token y además el usuario autenticado debe tener permiso `ADMINISTRADOR` o `SISTEMAS`. Los demás permisos reciben `403 Forbidden`.
+
+Todas las rutas requieren `Authorization: Bearer <firebase_id_token>`. Solo los permisos `ADMINISTRADOR` y `SISTEMAS` pueden usar este mÃ³dulo; los demÃ¡s reciben `403`.
+
+#### Campos del usuario
+
+| Campo | Tipo | Requerido | DescripciÃ³n |
+|---|---|---:|---|
+| `id` | `string` | Respuesta | ID del documento en Firestore. |
+| `email` | `string` | POST | Correo vÃ¡lido; se guarda en minÃºsculas y sin espacios. |
+| `permiso` | `string` | POST | `ADMINISTRADOR`, `LECTURA`, `SISTEMAS`, `EDITOR`, `DIRECTOR ESCUELA`, `DIRECTOR OFICINA` o `PRESIDENTE`. |
+| `estado` | `string` | No | `ACTIVO` o `INACTIVO`; por defecto `ACTIVO`. Solo los activos pueden autenticarse. |
+| `dependencia_actual` | `object` | Condicional | Obligatoria para directores. |
+| `dependencia_actual.escuela_o_oficina_id` | `string` | SÃ­ | ID de dependencia existente. |
+| `dependencia_actual.departamento_id` | `string` | No | ID de departamento existente. |
+| `dependencia_actual.seccion_id` | `string` | No | ID de secciÃ³n existente. |
+| `dependencia_actual.ancestros` | `string[]` | No | IDs de dependencias superiores; por defecto `[]`. |
+| `createdAt` | ISO 8601 | Respuesta | Fecha de creaciÃ³n, generada por el backend. |
+| `updatedAt` | ISO 8601 | Respuesta | Fecha de Ãºltima actualizaciÃ³n. |
+| `lastLoginAt` | ISO 8601 | Respuesta | Fecha inicial de registro. |
+
+`dependencia_actual` es obligatoria para `DIRECTOR ESCUELA` y `DIRECTOR OFICINA`. Todos sus IDs deben existir en `dependencias`.
+
 #### `POST /api/usuarios`
 
 Crea un usuario en la lista blanca.
@@ -235,7 +260,7 @@ Crea un usuario en la lista blanca.
 
 > `dependencia_actual` es **obligatorio** solo si `permiso` es `"DIRECTOR ESCUELA"` o `"DIRECTOR OFICINA"`. Para los demás permisos es opcional.
 
-**Permisos válidos:** `ADMINISTRADOR`, `LECTURA`, `SISTEMAS`, `EDITOR`, `DIRECTOR ESCUELA`, `DIRECTOR OFICINA`
+**Permisos válidos:** `ADMINISTRADOR`, `LECTURA`, `SISTEMAS`, `EDITOR`, `DIRECTOR ESCUELA`, `DIRECTOR OFICINA`, `PRESIDENTE`
 
 **Respuesta `201`:**
 
@@ -278,6 +303,8 @@ Retorna todos los usuarios registrados.
 
 Retorna un usuario por su ID de Firestore.
 
+Ejemplo: `GET /api/usuarios/abc123xyz`. La respuesta contiene todos los campos descritos arriba. Devuelve `404` si no existe.
+
 **Respuesta `200`:** objeto de usuario. **`404`** si no existe.
 
 ---
@@ -297,6 +324,21 @@ Actualiza parcialmente un usuario. Todos los campos son opcionales.
 
 **Respuesta `200`:** objeto actualizado. **`404`** si no existe.
 
+El body es parcial: se puede enviar uno o varios campos. Ejemplo:
+
+```json
+{
+  "permiso": "DIRECTOR ESCUELA",
+  "estado": "ACTIVO",
+  "dependencia_actual": {
+    "escuela_o_oficina_id": "escuela123",
+    "departamento_id": "departamento456",
+    "seccion_id": "seccion789",
+    "ancestros": ["facultad001"]
+  }
+}
+```
+
 ---
 
 #### `DELETE /api/usuarios/:id`
@@ -308,6 +350,28 @@ Elimina un usuario de la lista blanca.
 ```json
 { "message": "Usuario eliminado correctamente" }
 ```
+
+Para conservar el registro, se recomienda usar `PUT` con `estado: "INACTIVO"`; un usuario inactivo no puede autenticarse. `DELETE` elimina permanentemente el documento.
+
+#### Control temporal de edición de credenciales
+
+La ventana de 24 horas queda desactivada actualmente. Se controla mediante la variable de entorno:
+
+```env
+CREDENCIALES_RESTRINGIR_EDICION_24H=false
+```
+
+Con `false`, las credenciales pueden editarse sin límite de tiempo. Para reactivar la restricción, cambiar a `true` y reiniciar el servidor:
+
+```env
+CREDENCIALES_RESTRINGIR_EDICION_24H=true
+```
+
+Cuando está activa, la API rechaza con `403` las ediciones posteriores a las primeras 24 horas desde `createdAt`.
+
+#### Nombre del presidente en el correo
+
+Al crear un evento, el backend consulta el correo del presidente y genera su nombre a partir de la parte anterior a `@`. Por ejemplo, `ana.garcia@univalle.edu.co` se muestra como `Ana Garcia` después de “Estimado/a”. También se limpian puntos, guiones y números.
 
 ---
 
@@ -1178,6 +1242,46 @@ El frontend debe enviar los datos del evento dentro de `evento` y los factores s
 
 El frontend debe usar `numero_evento` de la respuesta para actualizar su estado y
 no el valor mostrado previamente en la vista previa.
+
+#### Presidente, firma y notificación por correo
+
+Al crear un evento, `evento.soporte.correo_presidente` se normaliza y se registra
+automáticamente en `usuarios` como usuario `ACTIVO` con permiso `PRESIDENTE`, si
+no existía. Si el correo ya existe con otro permiso, la creación responde `409`.
+
+Después de guardar el evento, el backend envía una notificación por correo al
+presidente. Por ahora no se guardan registros de envío ni se hacen reintentos; si
+el correo falla, el evento se conserva y el error se registra en el servidor.
+
+El envío requiere Nodemailer y estas variables en `.env`:
+
+```env
+SMTP_USER=notificaciones@gmail.com
+SMTP_PASSWORD=contraseña_de_aplicación_de_google
+FRONTEND_URL=https://tu-frontend.com
+```
+
+Se usa Gmail mediante `service: 'gmail'`. `SMTP_PASSWORD` debe ser una contraseña
+de aplicación, no la contraseña normal de la cuenta, y nunca debe subirse al
+repositorio.
+
+Para agregar la firma existe una ruta exclusiva:
+
+```http
+PATCH /api/credenciales/:profesorId/eventos/:numeroEvento/firma
+```
+
+Body:
+
+```json
+{ "firma_presidente_url": "https://.../firma.png" }
+```
+
+El backend solo permite esta operación a usuarios con permiso `PRESIDENTE` y cuyo
+correo coincida con `correo_presidente` del evento. La ruta de generación de
+destinos de carga también rechaza `FIRMA_PRESIDENTE` para otros permisos. El
+frontend puede ocultar la opción de firma, pero estas validaciones del backend son
+las que garantizan la seguridad.
 
 #### `POST /api/credenciales`
 

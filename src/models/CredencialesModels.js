@@ -256,6 +256,10 @@ const UpdateCredencialesSchema = z.object({
   extension_destacada: z.array(ExtensionDestacadaSchema).optional()
 });
 
+const FirmaPresidenteSchema = z.object({
+  firma_presidente_url: z.string().url('Debe ser una URL válida')
+});
+
 const createCredenciales = (data) => {
   const validData = CredencialesSchema.parse(data);
   const now = new Date().toISOString();
@@ -269,6 +273,7 @@ const createCredenciales = (data) => {
 export {
   CredencialesSchema,
   UpdateCredencialesSchema,
+  FirmaPresidenteSchema,
   CrearEventoCredencialSchema,
   createCredenciales,
   EventoCredencialesSchema,
