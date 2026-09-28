@@ -1,9 +1,12 @@
 import {
   collection,
+  addDoc,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  query,
+  where,
   runTransaction,
   setDoc,
   updateDoc
@@ -13,13 +16,30 @@ import { db } from '../config/firebase.js';
 import {
   createCredenciales,
   CrearEventoCredencialSchema,
-  UpdateCredencialesSchema
+  UpdateCredencialesSchema,
+  FirmaPresidenteSchema
 } from '../models/CredencialesModels.js';
 import PuntajeService from '../Services/PuntajeService.js';
+import { enviarNotificacionFirma } from '../Services/emailService.js';
 
 const credencialesCollection = collection(db, 'credenciales');
 const profesoresCollection = collection(db, 'profesores');
+const usuariosCollection = collection(db, 'usuarios');
+const RESTRINGIR_EDICION_24H = process.env.CREDENCIALES_RESTRINGIR_EDICION_24H === 'true';
 const CREDENCIALES_EDITABLES_DURANTE_MS = 24 * 60 * 60 * 1000;
+
+// Fallback para los registros actuales, que solo almacenan el correo del presidente.
+const nombreDesdeCorreo = (correo) => {
+  const parteLocal = correo.split('@')[0] || 'Presidente';
+  return parteLocal
+    .replace(/[._-]+/g, ' ')
+    .replace(/\d+/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
+    .join(' ') || 'Presidente';
+};
 
 const handleError = (res, error) => {
   if (error instanceof z.ZodError) {
@@ -63,6 +83,7 @@ const getNextEventNumber = (data) => {
 };
 
 const validateEditWindow = (data) => {
+  if (!RESTRINGIR_EDICION_24H) return;
   const createdAt = new Date(data.createdAt).getTime();
   const editWindowExpired = !Number.isFinite(createdAt)
     || Date.now() - createdAt > CREDENCIALES_EDITABLES_DURANTE_MS;
@@ -241,6 +262,25 @@ export const createEventoCredencialController = async (req, res) => {
     const { profesorId } = req.params;
     const payload = CrearEventoCredencialSchema.parse(req.body);
     const credencialesRef = doc(credencialesCollection, profesorId);
+    const existingCredenciales = await getDoc(credencialesRef);
+    if (!existingCredenciales.exists()) {
+      return res.status(404).json({ message: 'Credenciales no encontradas' });
+    }
+    const correoPresidente = payload.evento.soporte.correo_presidente.toLowerCase().trim();
+    const usuarioSnapshot = await getDocs(query(usuariosCollection, where('email', '==', correoPresidente)));
+    const nombrePresidente = nombreDesdeCorreo(correoPresidente);
+    if (usuarioSnapshot.empty) {
+      const now = new Date().toISOString();
+      await addDoc(usuariosCollection, {
+        email: correoPresidente,
+        permiso: 'PRESIDENTE',
+        estado: 'ACTIVO',
+        createdAt: now,
+        updatedAt: now
+      });
+    } else if (usuarioSnapshot.docs[0].data().permiso !== 'PRESIDENTE') {
+      return res.status(409).json({ message: 'El correo del presidente ya está registrado con otro permiso' });
+    }
 
     await runTransaction(db, async (transaction) => {
       const credencialesDoc = await transaction.get(credencialesRef);
@@ -312,14 +352,59 @@ export const createEventoCredencialController = async (req, res) => {
     });
 
     const updatedDoc = await getDoc(credencialesRef);
+    const profesorDoc = await getDoc(doc(profesoresCollection, profesorId));
+    const profesor = profesorDoc.exists() ? profesorDoc.data() : null;
+    const numeroEvento = updatedDoc.data().ultimo_numero_evento;
+    try {
+      await enviarNotificacionFirma({
+        correoPresidente,
+        profesorId,
+        numeroEvento,
+        nombreProfesor: profesor ? `${profesor.nombres} ${profesor.apellidos}` : profesorId,
+        nombrePresidente
+      });
+    } catch (emailError) {
+      console.error('[email-firma-presidente]', emailError.message);
+    }
     return res.status(201).json({
-      numero_evento: updatedDoc.data().ultimo_numero_evento,
+      numero_evento: numeroEvento,
       credenciales: toResponse(updatedDoc)
     });
   } catch (error) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
     }
+    return handleError(res, error);
+  }
+};
+
+export const addFirmaPresidenteController = async (req, res) => {
+  try {
+    if (req.usuario.permiso !== 'PRESIDENTE') {
+      return res.status(403).json({ message: 'Solo un PRESIDENTE puede agregar la firma' });
+    }
+    const { profesorId, numeroEvento } = req.params;
+    const { firma_presidente_url: firmaUrl } = FirmaPresidenteSchema.parse(req.body);
+    const credencialesRef = doc(credencialesCollection, profesorId);
+    const credencialesDoc = await getDoc(credencialesRef);
+    if (!credencialesDoc.exists()) return res.status(404).json({ message: 'Credenciales no encontradas' });
+
+    const data = credencialesDoc.data();
+    const eventIndex = (data.eventos_credenciales || []).findIndex(
+      (event) => String(event.numero_evento) === String(numeroEvento)
+    );
+    if (eventIndex === -1) return res.status(404).json({ message: 'Evento credencial no encontrado' });
+    const event = data.eventos_credenciales[eventIndex];
+    if (event.soporte.correo_presidente.toLowerCase() !== req.usuario.email.toLowerCase()) {
+      return res.status(403).json({ message: 'No puede firmar este evento' });
+    }
+
+    const eventos = [...data.eventos_credenciales];
+    eventos[eventIndex] = { ...event, soporte: { ...event.soporte, firma_presidente_url: firmaUrl } };
+    await updateDoc(credencialesRef, { eventos_credenciales: eventos, updatedAt: new Date().toISOString() });
+    return res.status(200).json({ message: 'Firma del presidente guardada correctamente' });
+  } catch (error) {
+    if (error instanceof z.ZodError) return handleError(res, error);
     return handleError(res, error);
   }
 };

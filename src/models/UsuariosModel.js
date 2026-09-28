@@ -4,7 +4,7 @@ const permisosDirectivos = ['DIRECTOR ESCUELA', 'DIRECTOR OFICINA'];
 
 const BaseUsuarioSchema = z.object({
   email: z.string().email('Debe ser un correo valido').transform((v) => v.toLowerCase().trim()),
-  permiso: z.enum(['ADMINISTRADOR', 'LECTURA', 'SISTEMAS', 'EDITOR', 'DIRECTOR ESCUELA', 'DIRECTOR OFICINA']),
+  permiso: z.enum(['ADMINISTRADOR', 'LECTURA', 'SISTEMAS', 'EDITOR', 'DIRECTOR ESCUELA', 'DIRECTOR OFICINA', 'PRESIDENTE']),
   // IDs de la ESCUELA u OFICINA a la que pertenece el usuario
   dependencia_actual: z.object({
     escuela_o_oficina_id: z.string({ required_error: 'ID de Escuela u Oficina es requerido' }),

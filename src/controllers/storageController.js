@@ -107,6 +107,9 @@ export const getStorageFileController = async (req, res) => {
 export const createStorageUploadTargetController = async (req, res) => {
   try {
     const payload = StorageUploadTargetSchema.parse(req.body);
+    if (payload.tipo === 'FIRMA_PRESIDENTE' && req.usuario.permiso !== 'PRESIDENTE') {
+      return res.status(403).json({ message: 'Solo un PRESIDENTE puede cargar una firma' });
+    }
     const path = buildStoragePath(payload);
     const encodedPath = encodeURIComponent(path);
     const uploadUrl = `${FIREBASE_STORAGE_BASE_URL}/b/${storageBucket}/o?uploadType=media&name=${encodedPath}`;
