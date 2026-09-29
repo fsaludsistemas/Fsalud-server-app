@@ -13,7 +13,7 @@ export const enviarNotificacionFirma = async ({ correoPresidente, profesorId, nu
     throw new Error('Faltan SMTP_USER o SMTP_PASSWORD para enviar correos');
   }
 
-  const url = `${process.env.FRONTEND_URL || ''}/profesores/${profesorId}/credenciales`;
+  const url = process.env.FRONTEND_URL || '';
   await transporter.sendMail({
     from: process.env.SMTP_USER,
     to: correoPresidente,
@@ -24,6 +24,7 @@ export const enviarNotificacionFirma = async ({ correoPresidente, profesorId, nu
       <p>Detalle:</p>
       <p><strong>Profesor:</strong> ${nombreProfesor || profesorId}</p>
       <p><strong>Número de evento:</strong> ${numeroEvento}</p>
-      <p>Le solicitamos comedidamente revisar y agregar firma.</p>`
+      <p>Le solicitamos comedidamente revisar y agregar firma.</p>
+      <p>Puede acceder a la aplicación a través del siguiente enlace: <a href="${url}">Aplicación docentes</a></p>`
   });
 };
