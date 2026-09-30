@@ -1,29 +1,33 @@
+import 'dotenv/config'; // Esto carga automáticamente las variables de tu archivo .env
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import { ProfesorSchema, createProfesor } from '../models/ProfesorModel.js';
 import { db } from '../config/firebase.js';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 
 // ==========================================
 // CONFIGURACIÓN DE VARIABLES DE ENTORNO
 // ==========================================
-// Estas variables vendrán de los "Secrets" en GitHub Actions
+// Estas variables vendrán de los "Secrets" en GitHub Actions o del archivo .env local
 const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
+// Variable opcional para limitar la cantidad de registros en pruebas
+const LIMIT_RECORDS = process.env.LIMIT_RECORDS ? parseInt(process.env.LIMIT_RECORDS, 10) : null;
 
-// Función auxiliar para separar nombres y apellidos (Asume: últimos 2 siempre son apellidos)
+// Función auxiliar para separar nombres y apellidos (Asume: primeras 2 siempre son apellidos)
 function separarNombre(nombreCompleto) {
   if (!nombreCompleto) return { nombres: 'Desconocido', apellidos: 'Desconocido' };
   
   const partes = nombreCompleto.trim().split(/\s+/);
   if (partes.length <= 2) {
-    return { nombres: partes[0] || 'Desconocido', apellidos: partes[1] || 'Sin Apellido' };
+    // Si solo hay dos palabras, asumimos que la primera es apellido y la segunda nombre
+    return { nombres: partes[1] || 'Desconocido', apellidos: partes[0] || 'Sin Apellido' };
   }
   
-  // Los últimos dos elementos son los apellidos, el resto son nombres
-  const apellidos = partes.slice(-2).join(' ');
-  const nombres = partes.slice(0, -2).join(' ');
+  // Los primeros dos elementos son los apellidos, el resto son nombres
+  const apellidos = partes.slice(0, 2).join(' ');
+  const nombres = partes.slice(2).join(' ');
   
   return { nombres, apellidos };
 }
@@ -70,7 +74,12 @@ async function syncProfesores() {
   const dependenciasMap = await getDependenciasMap();
 
   console.log(`Hoja cargada: ${sheet.title}. Obteniendo filas...`);
-  const rows = await sheet.getRows();
+  let rows = await sheet.getRows();
+
+  if (LIMIT_RECORDS && !isNaN(LIMIT_RECORDS)) {
+    console.log(`⚠️ MODO DE PRUEBA: Limitando a los primeros ${LIMIT_RECORDS} registros...`);
+    rows = rows.slice(0, LIMIT_RECORDS);
+  }
 
   let insertados = 0;
   let errores = 0;
@@ -110,10 +119,10 @@ async function syncProfesores() {
 
       const dependencia_actual = {
         escuela_o_oficina_id: escuelaId || 'NO_ENCONTRADA_O_NO_ASIGNADA', 
-        departamento_id: departamentoId,
-        seccion_id: seccionId,
         ancestros
       };
+      if (departamentoId) dependencia_actual.departamento_id = departamentoId;
+      if (seccionId) dependencia_actual.seccion_id = seccionId;
 
       // 4. Preparar el objeto para Zod
       const profesorData = {
@@ -122,9 +131,13 @@ async function syncProfesores() {
         nombres,
         apellidos,
         email_institucional: correoFinal,
-        telefono: celular ? celular.toString() : undefined,
         dependencia_actual
       };
+      
+      if (celular) profesorData.telefono = celular.toString();
+      
+      // Limpiar recursivamente cualquier undefined que haya quedado en Zod
+      Object.keys(profesorData).forEach(key => profesorData[key] === undefined && delete profesorData[key]);
 
       // 5. Validar con Zod (createProfesor ya ejecuta ProfesorSchema.parse)
       const profesorValidado = createProfesor(profesorData);
@@ -132,13 +145,21 @@ async function syncProfesores() {
       // 6. Guardar en Base de Datos (Firestore)
       if (profesorValidado.numero_identificacion) {
         const profesorRef = doc(db, 'profesores', profesorValidado.numero_identificacion);
+        
+        // Verificar si ya existe para no sobreescribir
+        const profesorSnap = await getDoc(profesorRef);
+        if (profesorSnap.exists()) {
+          console.log(`⏩ Omitido (Ya existe): ${apellidos} ${nombres}`);
+          continue; // Salta al siguiente profesor
+        }
+
         await setDoc(profesorRef, profesorValidado);
       } else {
         throw new Error('No se pudo determinar el numero_identificacion (cédula)');
       }
 
       insertados++;
-      console.log(`✅ Procesado: ${nombres} ${apellidos}`);
+      console.log(`✅ Registrado: ${apellidos} ${nombres}`);
 
     } catch (error) {
       console.error(`❌ Error procesando fila (Cédula: ${row.get('cedula')}):`, error.message);
