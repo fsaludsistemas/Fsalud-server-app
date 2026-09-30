@@ -3,7 +3,7 @@ import { z } from 'zod';
 const ProfesorSchema = z.object({
   tipo_identificacion: z.enum(['CEDULA', 'PASAPORTE', 'TARJETA_IDENTIDAD']),  
   numero_identificacion: z.string().min(5, 'La cédula/documento es obligatoria'),
-  nombres: z.string().min(2, 'Los nombres son requeridos'),
+  nombres: z.string().min(1, 'Los nombres son requeridos'),
   apellidos: z.string().min(2, 'Los apellidos son requeridos'),
   lugar_nacimiento: z.string().optional(),
   fecha_nacimiento: z.string().optional(),

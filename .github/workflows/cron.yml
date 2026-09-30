@@ -1,0 +1,39 @@
+name: Sincronización Mensual de Profesores (Google Sheets)
+
+on:
+  schedule:
+    # Se ejecuta el día 1 de cada mes a la medianoche UTC
+    - cron: '0 0 1 * *'
+  workflow_dispatch: # Permite ejecutar el script manualmente desde GitHub (botón "Run workflow")
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el repositorio (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Puedes ajustarlo a la versión que uses
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar script de sincronización
+        run: node src/Script/syncSheets.js
+        env:
+          # Variables de Google Sheets
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          
+          # Variables de Firebase necesarias para que el script se conecte a la BD
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
