@@ -13,7 +13,8 @@ export const enviarNotificacionFirma = async ({ correoPresidente, profesorId, nu
     throw new Error('Faltan SMTP_USER o SMTP_PASSWORD para enviar correos');
   }
 
-  const url = process.env.FRONTEND_URL || '';
+  const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const url = `${frontendUrl}/profesores/${encodeURIComponent(profesorId)}/credenciales`;
   await transporter.sendMail({
     from: process.env.SMTP_USER,
     to: correoPresidente,
