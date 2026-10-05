@@ -1,36 +1,32 @@
-name: Sincronización Mensual de Profesores (Google Sheets)
-
+name: Carga manual de asignaciones
 on:
-  schedule:
-    # Se ejecuta el día 1 de cada mes a la medianoche UTC
-    - cron: '0 0 1 * *'
-  workflow_dispatch: # Permite ejecutar el script manualmente desde GitHub (botón "Run workflow")
-
+  workflow_dispatch:
+    inputs:
+      periodos:
+        description: 'Períodos separados por coma'
+        required: true
+        default: '2026-1'
+      limite:
+        description: 'Máximo de filas por hoja (0 = todas)'
+        required: true
+        default: '0'
 jobs:
-  sync:
+  load:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Descargar el repositorio (Checkout)
-        uses: actions/checkout@v4
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18' # Puedes ajustarlo a la versión que uses
-
-      - name: Instalar dependencias
-        run: npm install
-
-      - name: Ejecutar script de sincronización
-        run: node src/Script/syncSheets.js
+          node-version: '18'
+      - run: npm install
+      - run: node src/Script/scriptAsignaciones.js
         env:
-          # Variables de Google Sheets
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          
-          # Variables de Firebase necesarias para que el script se conecte a la BD
+          GOOGLE_ASIGNACIONES_SHEET_ID: ${{ secrets.GOOGLE_ASIGNACIONES_SHEET_ID }}
+          PERIODOS: ${{ inputs.periodos }}
+          LIMIT_RECORDS: ${{ inputs.limite }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
