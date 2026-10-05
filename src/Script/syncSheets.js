@@ -98,7 +98,12 @@ async function syncProfesores() {
       // Lógica de correos: Si 'Correo-e' está vacío, usamos 'Correo-e2'
       const correo1 = row.get('Correo-e');
       const correo2 = row.get('Correo-e2');
-      const correoFinal = (correo1 && correo1.trim() !== '') ? correo1 : correo2;
+      // Normalizar correos para ignorar espacios al inicio o al final provenientes de Sheets.
+      const normalizarCorreo = (correo) => {
+        if (correo === null || correo === undefined) return '';
+        return correo.toString().trim();
+      };
+      const correoFinal = normalizarCorreo(correo1) || normalizarCorreo(correo2);
 
       // Separar nombres y apellidos
       const { nombres, apellidos } = separarNombre(nombreCompleto);
@@ -133,6 +138,7 @@ async function syncProfesores() {
         email_institucional: correoFinal,
         dependencia_actual
       };
+      if (!correoFinal) delete profesorData.email_institucional;
       
       if (celular) profesorData.telefono = celular.toString();
       

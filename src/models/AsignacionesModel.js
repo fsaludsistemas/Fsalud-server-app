@@ -20,7 +20,7 @@ const AsignacionesDocenteSchema = z.object({
     'ACTIVIDADES DE EXTENSION',
     'ACTIVIDADES DE INVESTIGACION',
     'ACTIVIDADES INTELECTUALES O ARTISTICAS',
-    'DOCENTE EN COMISIÓN',
+    'DOCENTE EN COMISION',
     'SIN ACTIVIDADES'
   ]),
   nombre_actividad: z.string().optional(),

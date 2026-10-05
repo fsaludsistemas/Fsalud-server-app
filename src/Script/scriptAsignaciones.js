@@ -30,6 +30,7 @@ async function main() {
   const sheets = spreadsheet.sheetsByIndex.filter((s) => !periods.size || periods.has(text(s.title)));
   if (!sheets.length) throw new Error('No se encontraron hojas para los períodos solicitados.');
   let dpCount = 0; let assignmentCount = 0; let skipped = 0; let errors = 0;
+  const missingProfessors = new Set();
   for (const sheet of sheets) {
     const period = text(sheet.title);
     if (!validPeriods.has(period)) { console.warn(`Omitida hoja ${period}: período inexistente.`); continue; }
@@ -38,10 +39,17 @@ async function main() {
     for (const row of rows) {
       try {
         const cedula = text(valueOf(row, 'cedula')); 
+        const profesorId = professors.get(cedula);
+        if (!profesorId) {
+          skipped++;
+          if (!missingProfessors.has(cedula)) {
+            missingProfessors.add(cedula);
+            console.warn(`Docente no encontrado: ${cedula}`);
+          }
+          continue;
+        }
         const rowPeriod = text(valueOf(row, 'Período')) || period;
         if (rowPeriod !== period) throw new Error(`Período de fila (${rowPeriod}) distinto al de la hoja (${period})`);
-        const profesorId = professors.get(cedula); 
-        if (!profesorId) { skipped++; console.warn(`Docente no encontrado: ${cedula}`); continue; }
         const dp = createDocentePeriodo({ profesor_id: profesorId, periodo_id: period, tipo_vinculacion: text(valueOf(row, 'Vinculación')), dedicacion: text(valueOf(row, 'Dedicación')), cargo: text(valueOf(row, 'Cargo')), nivel: text(valueOf(row, 'Nivel')), estado: 'ACTIVO' });
         await setDoc(doc(db, 'docente_periodos', dp.id), dp.data, { merge: true }); dpCount++;
         const assignmentFields = { profesor_id: profesorId, docente_periodo_id: dp.id, tipo_actividad: text(valueOf(row, 'Tipo de Actividad')), actividad: text(valueOf(row, 'Actividad')), nombre_actividad: text(valueOf(row, 'Nombre de actividad')) || undefined, detalle_actividad: text(valueOf(row, 'Detalle actividad')) || undefined, numero_horas: numberOf(valueOf(row, 'Número de horas')), categoria: text(valueOf(row, 'Categoría')) || undefined };

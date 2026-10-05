@@ -7,7 +7,10 @@ const ProfesorSchema = z.object({
   apellidos: z.string().min(2, 'Los apellidos son requeridos'),
   lugar_nacimiento: z.string().optional(),
   fecha_nacimiento: z.string().optional(),
-  email_institucional: z.string().email('Debe ser un correo válido'),
+  email_institucional: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().email('Debe ser un correo válido').optional()
+  ),
   telefono: z.string().optional(),
   fecha_vinculacion: z.string().optional(),
   foto_url: z.string().optional().nullable(),
@@ -26,8 +29,11 @@ const UpdateProfesorSchema = ProfesorSchema.partial();
 
 const createProfesor = (data) => {
   const validData = ProfesorSchema.parse(data);
+  const dataWithoutUndefined = Object.fromEntries(
+    Object.entries(validData).filter(([, value]) => value !== undefined)
+  );
   return {
-    ...validData,
+    ...dataWithoutUndefined,
     updatedAt: new Date().toISOString()
   };
 };
