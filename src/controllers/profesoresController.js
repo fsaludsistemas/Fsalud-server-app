@@ -5,7 +5,11 @@ import {
 	doc,
 	getDoc,
 	getDocs,
+	documentId,
+	limit,
+	orderBy,
 	query,
+	startAfter,
 	updateDoc,
 	where
 } from 'firebase/firestore';
@@ -111,11 +115,41 @@ export const createProfesorController = async (req, res) => {
 	}
 };
 
-export const getProfesoresController = async (_req, res) => {
+export const getProfesoresController = async (req, res) => {
 	try {
-		const snapshot = await getDocs(profesoresCollection);
-		const profesores = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-		return res.status(200).json(profesores);
+		const requestedLimit = Number.parseInt(req.query.limit, 10);
+		const pageSize = Number.isInteger(requestedLimit) && requestedLimit > 0
+			? Math.min(requestedLimit, 100)
+			: 10;
+		const pageToken = typeof req.query.pageToken === 'string' ? req.query.pageToken.trim() : '';
+
+		const constraints = [
+			orderBy(documentId()),
+			limit(pageSize + 1)
+		];
+
+		if (pageToken) {
+			const cursorDoc = await getDoc(doc(profesoresCollection, pageToken));
+			if (!cursorDoc.exists()) {
+				return res.status(400).json({ message: 'El pageToken no es valido' });
+			}
+			constraints.splice(1, 0, startAfter(cursorDoc));
+		}
+
+		const snapshot = await getDocs(query(profesoresCollection, ...constraints));
+		const pageDocs = snapshot.docs.slice(0, pageSize);
+		const profesores = pageDocs.map((item) => ({ id: item.id, ...item.data() }));
+		const hasMore = snapshot.docs.length > pageSize;
+		const lastDoc = pageDocs[pageDocs.length - 1];
+
+		return res.status(200).json({
+			data: profesores,
+			pagination: {
+				pageSize,
+				hasMore,
+				nextPageToken: hasMore && lastDoc ? lastDoc.id : null
+			}
+		});
 	} catch (error) {
 		return handleError(res, error);
 	}
