@@ -521,9 +521,45 @@ Crea un profesor. El `numero_identificacion` debe ser único.
 
 #### `GET /api/profesores`
 
-Retorna todos los profesores.
+Retorna una página de profesores. La consulta usa un cursor de Firestore, por lo que no carga todos los registros en cada solicitud.
 
-**Respuesta `200`:** array de profesores.
+**Query params:**
+
+- `limit` (opcional): cantidad solicitada por página. Por defecto `10`; máximo `100`.
+- `pageToken` (opcional): token devuelto por la página anterior en `pagination.nextPageToken`.
+
+**Ejemplos:**
+
+```http
+GET /api/profesores
+GET /api/profesores?limit=10&pageToken=TOKEN_DEVUELTO
+```
+
+**Respuesta `200`:**
+
+```json
+{
+  "data": [
+    {
+      "id": "prof_123",
+      "tipo_identificacion": "CEDULA",
+      "numero_identificacion": "1234567890",
+      "nombres": "Juan Carlos",
+      "apellidos": "Pérez Gómez",
+      "email_institucional": "juan.perez@correounivalle.edu.co"
+    }
+  ],
+  "pagination": {
+    "pageSize": 10,
+    "hasMore": true,
+    "nextPageToken": "TOKEN_PARA_LA_SIGUIENTE_PAGINA"
+  }
+}
+```
+
+Cuando no haya más registros, `hasMore` será `false` y `nextPageToken` será `null`.
+
+**Respuesta `400`:** si el `pageToken` no corresponde a un profesor existente.
 
 ---
 
