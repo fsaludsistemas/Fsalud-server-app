@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../config/firebase.js';
+import { collection, getDocs, query, where, withFirestoreToken } from '../config/firestoreRest.js';
 import { getPublicKey } from '../config/firebaseAdmin.js';
+const db = {};
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 
@@ -22,6 +22,7 @@ export const verificarToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`[AUTH] ${req.method} ${req.originalUrl} sin Bearer token`);
     return res.status(401).json({ message: 'Token de autenticación requerido' });
   }
 
@@ -31,6 +32,7 @@ export const verificarToken = async (req, res, next) => {
     // 1. Decodificar header del JWT para obtener el kid
     const decoded = jwt.decode(idToken, { complete: true });
     if (!decoded) {
+      console.warn(`[AUTH] ${req.method} ${req.originalUrl} token no decodificable`);
       return res.status(401).json({ message: 'Token inválido' });
     }
 
@@ -45,17 +47,21 @@ export const verificarToken = async (req, res, next) => {
     });
 
     const { uid, email } = payload;
+    if (!email) {
+      return res.status(401).json({ message: 'El token no contiene un correo electrónico' });
+    }
 
     // 4. Verificar lista blanca en Firestore
-    const snap = await getDocs(
+    const snap = await withFirestoreToken(idToken, () => getDocs(
       query(
         collection(db, 'usuarios'),
         where('email', '==', email.toLowerCase()),
         where('estado', '==', 'ACTIVO')
       )
-    );
+    ));
 
     if (snap.empty) {
+      console.warn(`[AUTH] ${req.method} ${req.originalUrl} usuario no autorizado: ${email}`);
       return res.status(403).json({
         message: 'Acceso denegado. Tu cuenta no está autorizada para usar esta aplicación.'
       });
@@ -74,13 +80,19 @@ export const verificarToken = async (req, res, next) => {
     };
     req.firebaseIdToken = idToken;
 
-    next();
+    return withFirestoreToken(idToken, () => next());
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
+      console.warn(`[AUTH] ${req.method} ${req.originalUrl} token expirado`);
       return res.status(401).json({ message: 'Token expirado' });
     }
     if (error.name === 'JsonWebTokenError') {
+      console.warn(`[AUTH] ${req.method} ${req.originalUrl} token inválido: ${error.message}`);
       return res.status(401).json({ message: 'Token inválido o malformado' });
+    }
+    if (error.status === 401 || error.status === 403) {
+      console.error('[verificarToken] Firestore rechazó el token:', error.message);
+      return res.status(error.status).json({ message: 'Firestore rechazó la autenticación del token' });
     }
     console.error('[verificarToken]', error);
     return res.status(500).json({ message: 'Error al verificar autenticación' });

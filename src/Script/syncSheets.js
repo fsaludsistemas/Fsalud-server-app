@@ -3,7 +3,7 @@ import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import { ProfesorSchema, createProfesor } from '../models/ProfesorModel.js';
 import { db } from '../config/firebase.js';
-import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc } from '../config/firestoreRest.js';
 
 // ==========================================
 // CONFIGURACIÓN DE VARIABLES DE ENTORNO

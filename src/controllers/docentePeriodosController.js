@@ -6,7 +6,7 @@ import {
   getDocs,
   setDoc,
   updateDoc
-} from 'firebase/firestore';
+} from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import {
@@ -19,6 +19,7 @@ const profesoresCollection = collection(db, 'profesores');
 const periodosCollection = collection(db, 'periodos');
 
 const handleError = (res, error) => {
+  console.error('[docente-periodos]', error);
   if (error instanceof z.ZodError) {
     return res.status(400).json({
       message: 'Error de validacion',
@@ -40,6 +41,12 @@ const validateProfesor = async (profesorId) => {
     const err = new Error('El profesor asociado no existe');
     err.statusCode = 400;
     throw err;
+  }
+
+  if (error.statusCode || error.status) {
+    return res.status(error.statusCode || error.status).json({
+      message: error.message
+    });
   }
 };
 

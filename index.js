@@ -14,6 +14,16 @@ import { verificarToken } from './src/Middlewares/verificarToken.js'
 
 const app = express()
 
+// Trazabilidad básica de solicitudes API. No registra tokens ni cuerpos sensibles.
+app.use((req, res, next) => {
+    const startedAt = Date.now()
+    res.on('finish', () => {
+        if (req.path.startsWith('/api')) {
+            console.log(`[HTTP] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${Date.now() - startedAt}ms)`)
+        }
+    })
+    next()
+})
 
 app.use(cors())
 app.use(express.json())

@@ -12,7 +12,7 @@ import {
 	startAfter,
 	updateDoc,
 	where
-} from 'firebase/firestore';
+} from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import { createProfesor, UpdateProfesorSchema } from '../models/ProfesorModel.js';
