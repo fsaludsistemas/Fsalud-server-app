@@ -82,6 +82,86 @@ export const limit = (value) => ({ type: 'limit', value });
 export const startAfter = (snapshot) => ({ type: 'startAfter', id: snapshot.id });
 export const query = (ref, ...constraints) => ({ ...ref, constraints });
 
+const toFirestoreQueryValue = (value, field) => {
+  // Firestore representa el ID del documento como una referencia completa,
+  // no como un string normal, cuando se usa orderBy('__name__').
+  if (field === '__name__') {
+    return {
+      referenceValue: `projects/${projectId}/databases/(default)/documents/${value}`
+    };
+  }
+
+  return encode(value);
+};
+
+const buildWhere = (constraints) => {
+  const filters = constraints
+    .filter((constraint) => constraint.type === 'where')
+    .map((constraint) => ({
+      fieldFilter: {
+        field: { fieldPath: constraint.field },
+        op: constraint.op === '==' ? 'EQUAL' : constraint.op,
+        value: toFirestoreQueryValue(constraint.value, constraint.field)
+      }
+    }));
+
+  if (filters.length === 0) return undefined;
+  if (filters.length === 1) return filters[0];
+
+  return {
+    compositeFilter: {
+      op: 'AND',
+      filters
+    }
+  };
+};
+
+const getDocsFromFirestore = async (ref) => {
+  const constraints = ref.constraints || [];
+  const structuredQuery = {
+    from: [{ collectionId: ref.name || ref.collection }]
+  };
+
+  const whereClause = buildWhere(constraints);
+  if (whereClause) structuredQuery.where = whereClause;
+
+  const orderByConstraints = constraints.filter(
+    (constraint) => constraint.type === 'orderBy'
+  );
+  if (orderByConstraints.length > 0) {
+    structuredQuery.orderBy = orderByConstraints.map((constraint) => ({
+      field: { fieldPath: constraint.field },
+      direction: constraint.direction === 'desc' ? 'DESCENDING' : 'ASCENDING'
+    }));
+  }
+
+  const startAfterConstraint = constraints.find(
+    (constraint) => constraint.type === 'startAfter'
+  );
+  if (startAfterConstraint) {
+    structuredQuery.startAt = {
+      before: false,
+      values: [toFirestoreQueryValue(startAfterConstraint.id, '__name__')]
+    };
+  }
+
+  const limitConstraint = constraints.find(
+    (constraint) => constraint.type === 'limit'
+  );
+  if (limitConstraint) structuredQuery.limit = limitConstraint.value;
+
+  const result = await request(`${baseUrl}:runQuery`, {
+    method: 'POST',
+    body: JSON.stringify({ structuredQuery })
+  });
+
+  const docs = result
+    .filter((item) => item.document)
+    .map((item) => wrap(item.document));
+
+  return { docs, empty: docs.length === 0, size: docs.length };
+};
+
 async function list(collectionName) {
   let url = `${baseUrl}/${collectionName}?pageSize=1000`;
   const documents = [];
@@ -99,15 +179,7 @@ export const getDoc = async (ref) => {
 };
 
 export const getDocs = async (ref) => {
-  const constraints = ref.constraints || [];
-  let documents = (await list(ref.name || ref.collection)).map(wrap);
-  for (const c of constraints) {
-    if (c.type === 'where') documents = documents.filter((d) => c.op === '==' ? d.data()[c.field] === c.value : true);
-    if (c.type === 'orderBy') documents.sort((a, b) => String(a.id).localeCompare(String(b.id)) * (c.direction === 'desc' ? -1 : 1));
-    if (c.type === 'startAfter') documents = documents.filter((d) => d.id > c.id);
-    if (c.type === 'limit') documents = documents.slice(0, c.value);
-  }
-  return { docs: documents, empty: documents.length === 0, size: documents.length };
+  return getDocsFromFirestore(ref);
 };
 
 export const addDoc = async (ref, data) => {
