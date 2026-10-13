@@ -8,7 +8,7 @@ import {
   query,
   where,
   updateDoc
-} from 'firebase/firestore';
+} from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import {

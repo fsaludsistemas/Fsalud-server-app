@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || 'AIzaSyBpGGPRN-fA-raJH8vItq0u2gncr6AJaow',
@@ -11,7 +10,9 @@ const firebaseConfig = {
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+// Firestore se consume mediante la API REST en firestoreRest.js.
+// Se conserva este export vacío para no romper imports existentes.
+const db = {};
 const storageBucket = firebaseConfig.storageBucket;
 
 export { db, storageBucket };

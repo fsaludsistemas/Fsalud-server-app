@@ -8,7 +8,7 @@ import {
   setDoc,
   updateDoc,
   where
-} from 'firebase/firestore';
+} from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import { createPeriodos, UpdatePeriodosSchema } from '../models/PeriodosModel.js';

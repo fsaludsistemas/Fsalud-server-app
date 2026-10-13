@@ -6,7 +6,7 @@ import {
   getDoc,
   getDocs,
   updateDoc
-} from 'firebase/firestore';
+} from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import { createUsuario, UpdateUsuarioSchema } from '../models/UsuariosModel.js';

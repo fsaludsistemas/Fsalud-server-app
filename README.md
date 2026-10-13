@@ -90,6 +90,28 @@ Regla esperada del bucket:
 allow read, write: if request.auth != null;
 ```
 
+### Acceso del backend a Firestore sin `firebase-admin`
+
+El backend usa la API REST de Firestore y reenvía el mismo Firebase ID Token
+que recibe en `Authorization: Bearer <idToken>`. Por eso las rutas `/api/*`
+siguen requiriendo exactamente el mismo encabezado; no cambia el contrato para
+el frontend. Las operaciones REST se centralizan en
+`src/config/firestoreRest.js`.
+
+Los scripts de sincronización no reciben una solicitud HTTP, así que necesitan
+un token válido en la variable de entorno `FIREBASE_ID_TOKEN` antes de
+ejecutarse. Ese token debe pertenecer a un usuario autenticado y autorizado en
+Firestore. Ejemplo:
+
+```powershell
+$env:FIREBASE_ID_TOKEN = '<firebase-id-token>'
+node src/Script/syncSheets.js
+```
+
+El frontend no necesita cambios si ya envía el ID Token en las llamadas a la
+API y en las cargas directas a Storage. Debe continuar renovando el token con
+`currentUser.getIdToken()` cuando sea necesario.
+
 Flujo recomendado:
 
 1. El frontend obtiene un `idToken` fresco con Firebase Auth.

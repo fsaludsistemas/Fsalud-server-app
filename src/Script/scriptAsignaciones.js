@@ -2,7 +2,7 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc } from '../config/firestoreRest.js';
 import { db } from '../config/firebase.js';
 import { createDocentePeriodo } from '../models/DocentePeriodoModel.js';
 import { createAsignacionesDocente } from '../models/AsignacionesModel.js';
