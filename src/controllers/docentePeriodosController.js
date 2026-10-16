@@ -13,6 +13,7 @@ import {
   createDocentePeriodo,
   UpdateDocentePeriodoSchema
 } from '../models/DocentePeriodoModel.js';
+import { actualizarDocentePeriodo } from '../Services/estadisticasService.js';
 
 const docentePeriodosCollection = collection(db, 'docente_periodos');
 const profesoresCollection = collection(db, 'profesores');
@@ -89,6 +90,7 @@ export const createDocentePeriodoController = async (req, res) => {
     }
 
     await setDoc(docentePeriodoRef, payload.data);
+    await actualizarDocentePeriodo({}, payload.data);
     const createdDoc = await getDoc(docentePeriodoRef);
     return res.status(201).json(await enrichDocentePeriodo(createdDoc));
   } catch (error) {
@@ -147,7 +149,10 @@ export const updateDocentePeriodoController = async (req, res) => {
       });
     }
 
+    const currentData = docentePeriodoDoc.data();
+    const nextData = { ...currentData, ...updatePayload };
     await updateDoc(docentePeriodoRef, updatePayload);
+    await actualizarDocentePeriodo(currentData, nextData);
     const updatedDoc = await getDoc(docentePeriodoRef);
     return res.status(200).json(await enrichDocentePeriodo(updatedDoc));
   } catch (error) {
@@ -166,6 +171,7 @@ export const deleteDocentePeriodoController = async (req, res) => {
     }
 
     await deleteDoc(docentePeriodoRef);
+    await actualizarDocentePeriodo(docentePeriodoDoc.data(), {});
     return res.status(200).json({ message: 'DocentePeriodo eliminado correctamente' });
   } catch (error) {
     return handleError(res, error);

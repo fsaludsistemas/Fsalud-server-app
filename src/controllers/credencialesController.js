@@ -21,6 +21,7 @@ import {
 } from '../models/CredencialesModels.js';
 import PuntajeService from '../Services/PuntajeService.js';
 import { enviarNotificacionFirma } from '../Services/emailService.js';
+import { actualizarCredenciales } from '../services/estadisticasService.js';
 
 const credencialesCollection = collection(db, 'credenciales');
 const profesoresCollection = collection(db, 'profesores');
@@ -196,6 +197,7 @@ export const createCredencialesController = async (req, res) => {
     const credencialesCalculadas = PuntajeService.procesarCredenciales(payload);
 
     await setDoc(credencialesRef, credencialesCalculadas);
+    await actualizarCredenciales({}, credencialesCalculadas);
     const createdDoc = await getDoc(credencialesRef);
     return res.status(201).json(toResponse(createdDoc));
   } catch (error) {
@@ -451,6 +453,7 @@ export const updateCredencialesController = async (req, res) => {
       ...credencialesCalculadas,
       updatedAt: new Date().toISOString()
     });
+    await actualizarCredenciales(currentData, credencialesCalculadas);
     const updatedDoc = await getDoc(credencialesRef);
     return res.status(200).json(toResponse(updatedDoc));
   } catch (error) {
@@ -472,6 +475,7 @@ export const deleteCredencialesController = async (req, res) => {
     }
 
     await deleteDoc(credencialesRef);
+    await actualizarCredenciales(credencialesDoc.data(), {});
     return res.status(200).json({ message: 'Credenciales eliminadas correctamente' });
   } catch (error) {
     return handleError(res, error);
