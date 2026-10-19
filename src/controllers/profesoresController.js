@@ -16,6 +16,7 @@ import {
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
 import { createProfesor, UpdateProfesorSchema } from '../models/ProfesorModel.js';
+import { actualizarProfesor } from '../Services/estadisticasService.js';
 
 const profesoresCollection = collection(db, 'profesores');
 const dependenciasCollection = collection(db, 'dependencias');
@@ -104,6 +105,7 @@ export const createProfesorController = async (req, res) => {
 		}
 
 		const createdRef = await addDoc(profesoresCollection, payload);
+		await actualizarProfesor({}, payload);
 		const createdDoc = await getDoc(createdRef);
 
 		return res.status(201).json({ id: createdRef.id, ...createdDoc.data() });
@@ -225,6 +227,7 @@ export const updateProfesorController = async (req, res) => {
 		};
 
 		await updateDoc(profesorRef, dataWithAudit);
+		await actualizarProfesor(profesorDoc.data(), { ...profesorDoc.data(), ...updatePayload });
 		const updatedDoc = await getDoc(profesorRef);
 
 		return res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
@@ -265,6 +268,7 @@ export const deleteProfesorController = async (req, res) => {
 		}
 
 		await deleteDoc(profesorRef);
+		await actualizarProfesor(profesorDoc.data(), {});
 		return res.status(200).json({ message: 'Profesor eliminado correctamente' });
 	} catch (error) {
 		return handleError(res, error);

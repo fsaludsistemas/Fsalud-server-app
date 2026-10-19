@@ -26,7 +26,29 @@ app.use((req, res, next) => {
     next()
 })
 
-app.use(cors())
+// El frontend se sirve desde Vercel y envía Authorization, por lo que el
+// navegador realiza un preflight OPTIONS antes de las peticiones protegidas.
+// Mantener CORS antes de cualquier middleware de autenticación es importante:
+// OPTIONS no contiene un Bearer token.
+const normalizeOrigin = origin => origin.trim().replace(/\/$/, '')
+const allowedOrigins = new Set([
+    'https://docentes-fsalud.vercel.app',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    ...(process.env.FRONTEND_URL || '').split(',').map(normalizeOrigin).filter(Boolean),
+    ...(process.env.CORS_ORIGINS || '').split(',').map(normalizeOrigin).filter(Boolean)
+])
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Permite llamadas sin Origin (curl, health checks y solicitudes del servidor).
+        if (!origin || allowedOrigins.has(normalizeOrigin(origin))) return callback(null, true)
+        return callback(new Error('Origen no permitido por CORS'))
+    },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204
+}))
 app.use(express.json())
 
 app.get('/', (req, res) => {
@@ -46,8 +68,13 @@ app.use('/api/credenciales', credencialesRoutes)
 app.use('/api/storage', storageRoutes)
 app.use('/api/estadisticas', estadisticasRoutes)
 
-const PORT = process.env.PORT || 3000
+// Vercel importa la aplicación como función serverless; en local se mantiene
+// el servidor HTTP tradicional para `npm start`/`npm run dev`.
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 3000
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`)
+    })
+}
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`)
-})
+export default app

@@ -94,6 +94,32 @@ export const actualizarDocentePeriodo = async (anterior = {}, nuevo = {}) => {
   await setDoc(estadisticasRef, stats);
 };
 
+export const actualizarProfesor = async (anterior = {}, nuevo = {}) => {
+  const snapshot = await getDoc(estadisticasRef);
+  if (!snapshot.exists()) return reconstruirEstadisticas('2026-2');
+
+  const stats = snapshot.data();
+  const beforeSchool = anterior.dependencia_actual?.escuela_o_oficina_id;
+  const afterSchool = nuevo.dependencia_actual?.escuela_o_oficina_id;
+
+  if (anterior && Object.keys(anterior).length > 0 && beforeSchool) {
+    inc(stats.profesores.por_escuela, beforeSchool, -1);
+  }
+  
+  if (nuevo && Object.keys(nuevo).length > 0 && afterSchool) {
+    inc(stats.profesores.por_escuela, afterSchool, 1);
+  }
+
+  if (Object.keys(anterior).length === 0 && Object.keys(nuevo).length > 0) {
+    stats.profesores.total = (stats.profesores.total || 0) + 1;
+  } else if (Object.keys(anterior).length > 0 && Object.keys(nuevo).length === 0) {
+    stats.profesores.total = Math.max(0, (stats.profesores.total || 0) - 1);
+  }
+
+  stats.actualizado_en = new Date().toISOString();
+  await setDoc(estadisticasRef, stats);
+};
+
 export const reconstruirEstadisticas = async (periodo = '2026-2') => {
   const stats = empty(periodo);
   const [profesores, docentes, credenciales] = await Promise.all([

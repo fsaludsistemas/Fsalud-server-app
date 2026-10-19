@@ -111,6 +111,20 @@ export const getDocentePeriodosController = async (_req, res) => {
   }
 };
 
+export const getDocentePeriodosByProfesorController = async (req, res) => {
+  try {
+    const snapshot = await getDocs(query(
+      docentePeriodosCollection,
+      where('profesor_id', '==', req.params.profesorId)
+    ));
+    return res.status(200).json(await Promise.all(
+      snapshot.docs.map((item) => enrichDocentePeriodo(item))
+    ));
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 export const getDocentePeriodoByIdController = async (req, res) => {
   try {
     const { id } = req.params;
