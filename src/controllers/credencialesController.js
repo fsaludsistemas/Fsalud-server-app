@@ -284,6 +284,9 @@ export const createEventoCredencialController = async (req, res) => {
       return res.status(409).json({ message: 'El correo del presidente ya está registrado con otro permiso' });
     }
 
+    let previousData;
+    let calculatedData;
+
     await runTransaction(db, async (transaction) => {
       const credencialesDoc = await transaction.get(credencialesRef);
 
@@ -294,6 +297,7 @@ export const createEventoCredencialController = async (req, res) => {
       }
 
       const currentData = credencialesDoc.data();
+      previousData = currentData;
       const numeroEvento = getNextEventNumber(currentData);
       const factores = addEventNumberToFactors(payload, numeroEvento);
       const mergedData = {
@@ -347,11 +351,16 @@ export const createEventoCredencialController = async (req, res) => {
         ]
       };
 
+      calculatedData = PuntajeService.procesarCredenciales(mergedData);
       transaction.update(credencialesRef, {
-        ...PuntajeService.procesarCredenciales(mergedData),
+        ...calculatedData,
         updatedAt: new Date().toISOString()
       });
     });
+
+    // Actualiza solo los contadores afectados por el evento agregado.
+    // No reconstruye las estadísticas completas.
+    await actualizarCredenciales(previousData, calculatedData);
 
     const updatedDoc = await getDoc(credencialesRef);
     const profesorDoc = await getDoc(doc(profesoresCollection, profesorId));
