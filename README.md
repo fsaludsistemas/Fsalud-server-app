@@ -2122,6 +2122,104 @@ Credenciales (1 documento por profesor; id = profesor_id)
 
 ## Ejecutar el proyecto
 
+## Estadísticas del dashboard
+
+El backend mantiene un resumen incremental en la colección Firestore
+`estadisticas_dashboard/dashboard`. Este documento se actualiza al crear,
+modificar o eliminar credenciales. Los contadores de profesores se calculan
+usando el último periodo configurado (por defecto `2026-2`).
+
+### `GET /api/estadisticas/dashboard`
+
+Devuelve el resumen listo para las gráficas:
+
+Admite filtros opcionales combinables mediante query string:
+
+```text
+GET /api/estadisticas/dashboard?periodo=2026-2
+GET /api/estadisticas/dashboard?periodo=2026-2&dedicacion=COMPLETO
+GET /api/estadisticas/dashboard?periodo=2026-2&escuela_id=escuela_1&cargo=ASISTENTE
+```
+
+Parámetros disponibles: `periodo`, `escuela_id`, `tipo_vinculacion`,
+`dedicacion`, `cargo` y `nivel`. Los valores deben coincidir con los valores
+guardados en los modelos, por ejemplo `COMPLETO`, `NOMBRADO`, `ASISTENTE` o
+`MAESTRIA`.
+
+Sin filtros, el endpoint devuelve directamente el resumen almacenado. Cuando se
+envía al menos un filtro, el backend consulta los docentes del periodo,
+selecciona los profesores que cumplen todas las condiciones y recalcula las
+estadísticas de profesores, factores y eventos para ese subconjunto. La respuesta
+mantiene exactamente la misma estructura, por lo que el frontend no necesita
+otra forma de procesarla.
+
+```json
+{
+  "periodo_profesores": "2026-2",
+  "profesores": {
+    "total": 1000,
+    "por_escuela": { "escuela_id": 25 },
+    "por_tipo_vinculacion": { "NOMBRADO": 400 },
+    "por_dedicacion": { "COMPLETO": 300 },
+    "por_cargo": { "ASISTENTE": 200 },
+    "por_nivel": { "MAESTRIA": 350 }
+  },
+  "factores": {
+    "pregrado": 500,
+    "posgrado": 700,
+    "categoria": 450,
+    "tiempo_parcial": 300,
+    "hora_catedra": 250,
+    "productividad_academica": 600,
+    "premios": 80,
+    "patentes": 20,
+    "extension_destacada": 150,
+    "docencia_destacada": 200
+  },
+  "eventos": {
+    "total": 900,
+    "por_anio": { "2022": 100, "2023": 180 },
+    "por_clase": { "1": 300, "2": 250 },
+    "por_anio_y_clase": {
+      "2022": { "1": 40, "2": 35, "3": 25 },
+      "2023": { "1": 60, "2": 70, "3": 50 }
+    }
+  },
+  "actualizado_en": "2026-10-15T00:00:00.000Z"
+}
+```
+
+`por_escuela` usa el ID de la dependencia; el frontend puede consultar
+`GET /api/dependencias` para mostrar el nombre. Los factores cuentan registros,
+no profesores únicos. Por ejemplo, un profesor con dos títulos de posgrado suma
+dos en `posgrado`.
+
+`eventos.por_anio_y_clase` permite graficar cuántos eventos de cada clase hubo
+por año. Las claves externas son años y las internas son clases. Por ejemplo,
+`eventos.por_anio_y_clase["2022"]["1"]` representa los eventos de clase 1
+realizados en 2022.
+
+Cuando se crea, edita o elimina un documento de `docente_periodos`, se actualizan
+incrementalmente `por_tipo_vinculacion`, `por_dedicacion`, `por_cargo` y
+`por_nivel`, siempre que el registro pertenezca al periodo almacenado en
+`periodo_profesores` (inicialmente `2026-2`). Los registros de otros periodos no
+afectan esos contadores.
+
+### `POST /api/estadisticas/dashboard/reconstruir`
+
+Reconstruye todos los contadores leyendo las colecciones fuente. Debe usarse
+como endpoint administrativo después de una carga masiva, migración o si se
+detecta una inconsistencia.
+
+Body opcional:
+
+```json
+{ "periodo": "2026-2" }
+```
+
+Si no se envía body, usa `2026-2`. El endpoint devuelve el mismo objeto del
+dashboard. Ambos endpoints requieren el token Firebase habitual.
+
 ```bash
 # Instalar dependencias
 npm install
