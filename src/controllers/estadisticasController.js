@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { obtenerEstadisticas, reconstruirEstadisticas } from '../services/estadisticasService.js';
+import { obtenerEstadisticas, reconstruirEstadisticas } from '../Services/estadisticasService.js';
 
 export const getEstadisticasController = async (_req, res) => {
   try {

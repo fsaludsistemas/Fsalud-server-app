@@ -21,7 +21,7 @@ import {
 } from '../models/CredencialesModels.js';
 import PuntajeService from '../Services/PuntajeService.js';
 import { enviarNotificacionFirma } from '../Services/emailService.js';
-import { actualizarCredenciales } from '../services/estadisticasService.js';
+import { actualizarCredenciales } from '../Services/estadisticasService.js';
 
 const credencialesCollection = collection(db, 'credenciales');
 const profesoresCollection = collection(db, 'profesores');
