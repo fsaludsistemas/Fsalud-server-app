@@ -4,8 +4,10 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
-  updateDoc
+  updateDoc,
+  where
 } from '../config/firestoreRest.js';
 import { z } from 'zod';
 import { db } from '../config/firebase.js';
