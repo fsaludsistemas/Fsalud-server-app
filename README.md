@@ -886,6 +886,42 @@ Retorna todos los registros de docente-periodo.
 
 ---
 
+#### `GET /api/docente-periodos/profesor/:profesorId`
+
+Retorna todos los periodos docentes asociados a un profesor específico. La
+respuesta incluye la información expandida de cada periodo.
+
+**Ejemplo:**
+
+```text
+GET /api/docente-periodos/profesor/10015949
+```
+
+Si el profesor no tiene registros asociados, devuelve un arreglo vacío (`[]`).
+
+**Respuesta `200`:**
+
+```json
+[
+  {
+    "id": "10015949_2026-1",
+    "profesor_id": "10015949",
+    "periodo_id": "2026-1",
+    "tipo_vinculacion": "NOMBRADO",
+    "dedicacion": "COMPLETO",
+    "cargo": "ASISTENTE",
+    "nivel": "MAESTRIA",
+    "estado": "ACTIVO",
+    "periodo": {
+      "id": "2026-1",
+      "periodo": "2026-1"
+    }
+  }
+]
+```
+
+---
+
 #### `GET /api/docente-periodos/:id`
 
 Retorna un registro por su ID compuesto.
@@ -2204,6 +2240,10 @@ incrementalmente `por_tipo_vinculacion`, `por_dedicacion`, `por_cargo` y
 `por_nivel`, siempre que el registro pertenezca al periodo almacenado en
 `periodo_profesores` (inicialmente `2026-2`). Los registros de otros periodos no
 afectan esos contadores.
+
+Cuando se crea o elimina un profesor, se actualizan incrementalmente `total` y
+`por_escuela`. Si se modifica la escuela del profesor, se descuenta de la escuela
+anterior y se suma a la nueva.
 
 ### `POST /api/estadisticas/dashboard/reconstruir`
 
